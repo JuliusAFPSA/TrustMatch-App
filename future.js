@@ -354,15 +354,24 @@ function renderGapAnalysis(data) {
       Useful:    { cls: 'useful',    icon: '🟢' },
     };
     document.getElementById('gap-skills').innerHTML = gaps.map(g => {
-      const cfg = priConfig[g.priority] || priConfig.Useful;
+      const cfg     = priConfig[g.priority] || priConfig.Useful;
+      const isSoft  = g.type === 'soft';
+      const typeBadge = isSoft
+        ? '<span class="skill-type-badge soft">💬 Soft</span>'
+        : '<span class="skill-type-badge hard">🔧 Hard</span>';
+      const courseHint = g.courseType
+        ? `<span class="course-type-hint">${esc(g.courseType)}</span>`
+        : '';
       return `
         <div class="sml-item-row">
           <span class="sml-icon">⚡</span>
           <div class="sml-item-body">
             <div class="sml-item-top">
               <span class="sml-skill-name">${esc(g.skill)}</span>
+              ${typeBadge}
               <span class="pri-badge ${cfg.cls}">${cfg.icon} ${esc(g.priority)}</span>
               ${g.weeks ? `<span class="weeks-chip">~${g.weeks}w</span>` : ''}
+              ${courseHint}
             </div>
             ${g.reason ? `<div class="gap-reason">${esc(g.reason)}</div>` : ''}
           </div>
@@ -423,7 +432,8 @@ async function loadCourses(gapItems) {
   try {
     const skills     = gapItems.map(g => g.skill).slice(0, 6).join(',');
     const priorities = gapItems.map(g => g.priority || 'Useful').slice(0, 6).join(',');
-    const params = new URLSearchParams({ skills, priorities });
+    const types      = gapItems.map(g => g.type || 'hard').slice(0, 6).join(',');
+    const params = new URLSearchParams({ skills, priorities, types });
     const resp = await fetch('/api/future/courses?' + params, { headers: authHeaders() });
     const data = await resp.json();
     renderLearning(data);
@@ -452,8 +462,12 @@ function renderLearning(data) {
   let html = '';
 
   for (const sg of skillGroups) {
-    const pc  = priConfig[sg.priority] || priConfig.Useful;
+    const pc      = priConfig[sg.priority] || priConfig.Useful;
+    const isSoft  = sg.skillType === 'soft';
     const hasCourses = sg.courses && sg.courses.length > 0;
+    const typeLabel  = isSoft
+      ? '<span class="skill-type-badge soft" style="font-size:11px;">💬 Soft Skill</span>'
+      : '<span class="skill-type-badge hard" style="font-size:11px;">🔧 Hard Skill</span>';
 
     html += `
       <div class="learn-phase" data-phase>
@@ -461,6 +475,7 @@ function renderLearning(data) {
           <div class="skill-phase-name">
             <span class="phase-num">Phase ${phaseNum}</span>
             <span class="phase-skill">${esc(sg.skill)}</span>
+            ${typeLabel}
           </div>
           <span class="pri-badge ${pc.cls}">${esc(pc.label)}</span>
         </div>
@@ -468,13 +483,35 @@ function renderLearning(data) {
 
     if (hasCourses) {
       html += sg.courses.map(c => renderCourseCard(c)).join('');
+    } else if (isSoft) {
+      // Soft skill fallback: LinkedIn Learning + Coursera
+      const liUrl = sg.searchUrl['LinkedIn Learning'] || liHref;
+      html += `
+        <div class="course-card" data-platform="LinkedIn Learning">
+          <span class="cc-platform linkedin">LinkedIn Learning</span>
+          <div class="cc-title">Find "${esc(sg.skill)}" on LinkedIn Learning</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Video courses from industry practitioners — ideal for soft skills</div>
+          <div class="cc-footer">
+            <span></span>
+            <a class="cc-enroll" href="${esc(liUrl)}" target="_blank" rel="noopener noreferrer">Search LinkedIn Learning →</a>
+          </div>
+        </div>
+        <div class="course-card" data-platform="Coursera">
+          <span class="cc-platform coursera">Coursera</span>
+          <div class="cc-title">Find "${esc(sg.skill)}" courses on Coursera</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Structured courses and specialisations from top universities</div>
+          <div class="cc-footer">
+            <span></span>
+            <a class="cc-enroll" href="${esc(sg.searchUrl.Coursera || `https://www.coursera.org/courses?query=${encodeURIComponent(sg.skill)}`)}" target="_blank" rel="noopener noreferrer">Search Coursera →</a>
+          </div>
+        </div>`;
     } else {
-      // Fallback: show search cards for Coursera and Udemy
+      // Hard skill fallback: Coursera + Udemy
       html += `
         <div class="course-card" data-platform="Coursera">
           <span class="cc-platform coursera">Coursera</span>
           <div class="cc-title">Find "${esc(sg.skill)}" courses on Coursera</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Browse the latest structured courses</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Browse structured courses and certifications</div>
           <div class="cc-footer">
             <span></span>
             <a class="cc-enroll" href="${esc(sg.searchUrl.Coursera)}" target="_blank" rel="noopener noreferrer">Search Coursera →</a>
@@ -483,7 +520,7 @@ function renderLearning(data) {
         <div class="course-card" data-platform="Udemy">
           <span class="cc-platform udemy">Udemy</span>
           <div class="cc-title">Find "${esc(sg.skill)}" courses on Udemy</div>
-          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Practical, self-paced courses</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Practical, self-paced project-based courses</div>
           <div class="cc-footer">
             <span></span>
             <a class="cc-enroll" href="${esc(sg.searchUrl.Udemy)}" target="_blank" rel="noopener noreferrer">Search Udemy →</a>

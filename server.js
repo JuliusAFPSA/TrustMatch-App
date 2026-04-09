@@ -1201,7 +1201,9 @@ app.patch('/api/cv/verify', requireAuth, (req, res) => {
 // Search for courses on a specific platform via SerpAPI Google Search
 async function searchCoursesViaSerpAPI(query, site) {
   if (!SERPAPI_KEY) return [];
-  const platform = site.includes('coursera') ? 'Coursera' : 'Udemy';
+  const platform = site.includes('coursera') ? 'Coursera'
+    : site.includes('linkedin')              ? 'LinkedIn Learning'
+    : 'Udemy';
   try {
     const q = `site:${site} ${query} course`;
     const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(q)}&num=5&api_key=${SERPAPI_KEY}`;
@@ -1210,7 +1212,7 @@ async function searchCoursesViaSerpAPI(query, site) {
     const data = await resp.json();
     return (data.organic_results || []).slice(0, 5).map(r => ({
       platform,
-      title: r.title.replace(/\s*[-|]\s*(Coursera|Udemy).*$/i, '').trim(),
+      title: r.title.replace(/\s*[-|]\s*(Coursera|Udemy|LinkedIn Learning|LinkedIn).*$/i, '').trim(),
       description: (r.snippet || '').slice(0, 150),
       url: r.link,
       image: r.thumbnail || null,
@@ -1219,6 +1221,19 @@ async function searchCoursesViaSerpAPI(query, site) {
       duration: null,
     }));
   } catch { return []; }
+}
+
+// Check how many job listings exist for a given role title (for pathway market validation)
+async function fetchJobCount(title) {
+  if (!SERPAPI_KEY) return null;
+  try {
+    const url = `https://serpapi.com/search.json?engine=google_jobs&q=${encodeURIComponent(title)}&api_key=${SERPAPI_KEY}&num=5`;
+    const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    if (data.error) return null;
+    return (data.jobs_results || []).length;
+  } catch { return null; }
 }
 
 /* POST /api/future/pathways — LLM-generated career pathway suggestions */
@@ -1392,6 +1407,30 @@ Person: ${currentRole}. Background: ${expSummary.slice(0, 100)}. Skills: ${skill
       return res.status(503).json({ error: 'AI returned incomplete results. Try again in a moment.' });
     }
 
+    // ── Job market validation ──────────────────────────────────────────────
+    // Only recommend roles that have real job openings. Run checks in parallel.
+    if (SERPAPI_KEY) {
+      const countResults = await Promise.allSettled(
+        normalised.map(p => fetchJobCount(p.title))
+      );
+      countResults.forEach((r, i) => {
+        normalised[i].jobCount = r.status === 'fulfilled' ? (r.value ?? null) : null;
+      });
+
+      // Filter out roles with a confirmed zero — keep null (unknown/timeout) as valid
+      const withJobs = normalised.filter(p => p.jobCount === null || p.jobCount > 0);
+
+      if (withJobs.length >= 2) {
+        // Enough pathways with real openings — use only those
+        normalised.splice(0, normalised.length, ...withJobs);
+      } else if (withJobs.length === 1) {
+        // Only one confirmed — keep the top two by job count so we don't leave the user with a single option
+        normalised.sort((a, b) => (b.jobCount ?? 0) - (a.jobCount ?? 0));
+        normalised.splice(2);
+      }
+      // If withJobs.length === 0: all searches returned 0, likely a transient SerpAPI issue — keep all pathways
+    }
+
     res.json({ pathways: normalised });
   } catch (err) {
     console.error('Pathways error:', err);
@@ -1473,20 +1512,24 @@ app.post('/api/future/gap', requireAuth, async (req, res) => {
     const baseReadiness = requiredSkills.length
       ? Math.round((baseHave.length / requiredSkills.length) * 100) : 0;
 
-    // ── Step 2: LLM for per-skill priority, time estimates & strengths ──
+    // ── Step 2: LLM for per-skill priority, time estimates, skill type & strengths ──
     const priorityPrompt =
-`You are a career advisor. For each missing skill below, rate its importance for the role and learning time.
+`You are a career advisor. Analyse each missing skill below for the target role.
 Target role: ${pathwayTitle}
 Candidate already has: ${userSkills.slice(0, 20).join(', ')}
 Missing skills: ${baseGap.join(', ')}
 
 Return ONLY JSON (no markdown):
-{"gaps":[{"skill":"X","priority":"Critical","weeks":6,"reason":"why needed"}],"strengths":["specific advantage 1","specific advantage 2"],"insight":"One concrete action to take."}
+{"readiness":65,"gaps":[{"skill":"X","type":"hard","priority":"Critical","weeks":6,"reason":"why this skill matters for the role","courseType":"online course"}],"strengths":["specific competitive advantage 1","specific competitive advantage 2"],"insight":"Single most impactful next step the candidate should take."}
 
-Priority: Critical=role requires it day 1, Important=expected within 3 months, Useful=differentiator
-weeks: realistic integer (1-24) to reach working proficiency
-strengths: 2 specific competitive advantages this person has FOR ${pathwayTitle}
-insight: single most impactful next step`;
+Field rules:
+- type: "hard" for technical/tool/platform/certification skills; "soft" for interpersonal/leadership/communication/management/emotional intelligence skills
+- priority: "Critical" = required from day one; "Important" = expected within 3 months; "Useful" = differentiator
+- weeks: realistic integer 1–24 to reach working proficiency
+- courseType: for hard skills use "online course"|"certification"|"bootcamp"|"project"; for soft skills use "workshop"|"coaching"|"book"|"practice"
+- strengths: 2 specific competitive advantages this person already has FOR ${pathwayTitle}
+- readiness: integer 0–100 overall readiness score
+- insight: one concrete next action`;
 
     try {
       const llm = await ollamaJSON(priorityPrompt);
@@ -1498,14 +1541,16 @@ insight: single most impactful next step`;
       // Add any missing gaps with default values
       const allGaps = [
         ...llmGaps.map(g => ({
-          skill:    String(g.skill    || '').trim(),
-          priority: ['Critical','Important','Useful'].includes(g.priority) ? g.priority : 'Important',
-          weeks:    Math.min(24, Math.max(1, Number(g.weeks) || 8)),
-          reason:   String(g.reason  || '').trim(),
+          skill:      String(g.skill      || '').trim(),
+          type:       g.type === 'soft' ? 'soft' : 'hard',
+          priority:   ['Critical','Important','Useful'].includes(g.priority) ? g.priority : 'Important',
+          weeks:      Math.min(24, Math.max(1, Number(g.weeks) || 8)),
+          reason:     String(g.reason     || '').trim(),
+          courseType: String(g.courseType || '').trim(),
         })).filter(g => g.skill),
         ...baseGap
           .filter(s => !llmSkillSet.has(norm(s)))
-          .map(s => ({ skill: s, priority: 'Useful', weeks: 6, reason: '' })),
+          .map(s => ({ skill: s, type: 'hard', priority: 'Useful', weeks: 6, reason: '', courseType: 'online course' })),
       ];
 
       // Sort: Critical → Important → Useful
@@ -1522,7 +1567,7 @@ insight: single most impactful next step`;
     } catch {
       // LLM failed — return baseline with generic priorities
       const fallbackGaps = baseGap.map((s, i) => ({
-        skill: s, priority: i < 2 ? 'Critical' : i < 4 ? 'Important' : 'Useful', weeks: 8, reason: '',
+        skill: s, type: 'hard', priority: i < 2 ? 'Critical' : i < 4 ? 'Important' : 'Useful', weeks: 8, reason: '', courseType: 'online course',
       }));
       return res.json({ readiness: baseReadiness, have: baseHave, gaps: fallbackGaps, strengths: [], insight: '' });
     }
@@ -1532,41 +1577,61 @@ insight: single most impactful next step`;
   }
 });
 
-/* GET /api/future/courses?skills=skill1,skill2&priorities=Critical,Important,Useful
-   Returns courses grouped by skill with skill-level tagging */
+/* GET /api/future/courses?skills=skill1,skill2&priorities=Critical,Important,Useful&types=hard,soft,hard
+   Returns courses grouped by skill. Hard skills → Coursera/Udemy. Soft skills → LinkedIn Learning. */
 app.get('/api/future/courses', requireAuth, async (req, res) => {
-  const { skills = '', priorities = '' } = req.query;
-  const skillList  = skills.split(',').map(s => s.trim()).filter(Boolean).slice(0, 6);
-  const prioList   = priorities.split(',').map(s => s.trim());
+  const { skills = '', priorities = '', types = '' } = req.query;
+  const skillList = skills.split(',').map(s => s.trim()).filter(Boolean).slice(0, 6);
+  const prioList  = priorities.split(',').map(s => s.trim());
+  const typeList  = types.split(',').map(s => s.trim().toLowerCase());
   if (!skillList.length) return res.json({ skillGroups: [], linkedInUrl: '', serpApiConfigured: false });
 
   const linkedInUrl = `https://www.linkedin.com/learning/search?keywords=${encodeURIComponent(skillList.slice(0, 2).join(' '))}`;
 
   // Per-skill search-link fallbacks (always returned)
-  const skillGroups = skillList.map((skill, i) => ({
-    skill,
-    priority:  prioList[i] || 'Useful',
-    courses:   [],
-    searchUrl: {
-      Coursera: `https://www.coursera.org/courses?query=${encodeURIComponent(skill)}`,
-      Udemy:    `https://www.udemy.com/courses/search/?q=${encodeURIComponent(skill)}&sort=highest-rated`,
-    },
-  }));
+  const skillGroups = skillList.map((skill, i) => {
+    const isSoft = typeList[i] === 'soft';
+    return {
+      skill,
+      skillType: isSoft ? 'soft' : 'hard',
+      priority:  prioList[i] || 'Useful',
+      courses:   [],
+      searchUrl: isSoft
+        ? {
+            'LinkedIn Learning': `https://www.linkedin.com/learning/search?keywords=${encodeURIComponent(skill)}`,
+            Coursera:            `https://www.coursera.org/courses?query=${encodeURIComponent(skill + ' communication leadership')}`,
+          }
+        : {
+            Coursera: `https://www.coursera.org/courses?query=${encodeURIComponent(skill)}`,
+            Udemy:    `https://www.udemy.com/courses/search/?q=${encodeURIComponent(skill)}&sort=highest-rated`,
+          },
+    };
+  });
 
   if (!SERPAPI_KEY) {
     return res.json({ skillGroups, linkedInUrl, serpApiConfigured: false });
   }
 
-  // Search top 3 critical/important skills per platform in parallel
-  // Use per-skill queries for precision; limit to first 3 skills to save SerpAPI credits
-  const top3 = skillList.slice(0, 3);
+  // Search top 3 skills — hard skills on Coursera+Udemy, soft skills on LinkedIn Learning
+  // Limit to 3 to preserve SerpAPI credits
+  const top3 = skillGroups.slice(0, 3);
 
-  const searchJobs = top3.flatMap(skill => [
-    searchCoursesViaSerpAPI(skill, 'coursera.org').then(courses => ({ skill, platform: 'Coursera', courses })),
-    searchCoursesViaSerpAPI(skill, 'udemy.com').then(courses => ({ skill, platform: 'Udemy',    courses })),
-  ]);
+  const searchTasks = top3.flatMap(sg => {
+    if (sg.skillType === 'soft') {
+      // Soft skills: LinkedIn Learning only (1 call instead of 2)
+      return [
+        searchCoursesViaSerpAPI(sg.skill, 'linkedin.com/learning')
+          .then(courses => ({ skill: sg.skill, platform: 'LinkedIn Learning', courses })),
+      ];
+    }
+    // Hard skills: Coursera + Udemy (2 calls)
+    return [
+      searchCoursesViaSerpAPI(sg.skill, 'coursera.org').then(courses => ({ skill: sg.skill, platform: 'Coursera', courses })),
+      searchCoursesViaSerpAPI(sg.skill, 'udemy.com').then(courses  => ({ skill: sg.skill, platform: 'Udemy',    courses })),
+    ];
+  });
 
-  const settled = await Promise.allSettled(searchJobs);
+  const settled = await Promise.allSettled(searchTasks);
 
   // Accumulate courses into skillGroups
   const coursesBySkill = {};

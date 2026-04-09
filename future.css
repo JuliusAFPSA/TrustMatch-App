@@ -598,6 +598,20 @@
 /* Reason tooltip */
 .gap-reason { font-size: 11px; color: var(--muted); padding: 0 12px 6px 34px; }
 
+/* Skill type badge (Hard / Soft) */
+.skill-type-badge {
+  font-size: 10px; font-weight: 700; padding: 2px 7px;
+  border-radius: 999px; white-space: nowrap;
+}
+.skill-type-badge.hard { background: #e8f0fe; color: #1a56b0; }
+.skill-type-badge.soft { background: #fef3e2; color: #9a5600; }
+
+/* Course type hint (e.g. "certification", "workshop") */
+.course-type-hint {
+  font-size: 10px; color: var(--muted); font-style: italic;
+  padding: 2px 6px; background: #f5f5f5; border-radius: 6px;
+}
+
 /* Readiness colour states */
 #readiness-arc { transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1), stroke .4s; }
 .readiness-pct { font-size: 12px; }
