@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Skillbridge – Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* ── Reset body for full-bleed split layout ── */
+    body { margin: 0; padding: 0; min-height: 100vh; }
+    .app  { padding: 0; min-height: 100vh; }
+
+    /* ════════════════════════════════════════════
+       SPLIT LAYOUT
+       ════════════════════════════════════════════ */
+    .auth-split {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      min-height: 100vh;
+    }
+
+    /* ── LEFT: Brand panel ───────────────────── */
+    .auth-brand {
+      background: linear-gradient(160deg, #0d1c42 0%, #13234b 45%, #1e3a72 100%);
+      padding: 40px 36px 48px;
+      display: flex;
+      flex-direction: column;
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    /* subtle background orb */
+    .auth-brand::before {
+      content: '';
+      position: absolute;
+      width: 340px; height: 340px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,102,0,.15) 0%, transparent 70%);
+      bottom: -80px; right: -80px;
+      pointer-events: none;
+    }
+
+    .brand-logo {
+      font-size: 24px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -.3px;
+      margin-bottom: 48px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .brand-logo-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ff6600;
+      display: inline-block;
+    }
+
+    .brand-headline {
+      font-size: 30px;
+      font-weight: 800;
+      line-height: 1.25;
+      margin: 0 0 12px;
+      color: #fff;
+    }
+    .brand-sub {
+      font-size: 14px;
+      color: #8fa8d8;
+      margin: 0 0 40px;
+      line-height: 1.6;
+    }
+
+    /* Journey steps in brand panel */
+    .brand-steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 40px; }
+    .brand-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+    .brand-step:last-child { border-bottom: none; }
+    .brand-step-num {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      background: rgba(255,102,0,.18);
+      border: 1px solid rgba(255,102,0,.4);
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 13px;
+      color: #ff9a5c;
+      flex-shrink: 0;
+    }
+    .brand-step-text strong {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+    .brand-step-text span {
+      font-size: 12px;
+      color: #7d9cc4;
+      line-height: 1.5;
+    }
+
+    /* Stats row */
+    .brand-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: rgba(255,255,255,.1);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-top: auto;
+    }
+    .brand-stat {
+      background: rgba(255,255,255,.05);
+      padding: 14px 10px;
+      text-align: center;
+    }
+    .brand-stat strong {
+      display: block;
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .brand-stat span {
+      font-size: 11px;
+      color: #7d9cc4;
+    }
+
+    /* ── RIGHT: Form panel ───────────────────── */
+    .auth-form-panel {
+      background: #f4f6fc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      overflow-y: auto;
+    }
+    .auth-form-inner {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    /* Mobile-only logo */
+    .mobile-logo {
+      display: none;
+      font-size: 20px; font-weight: 800;
+      color: #13234b;
+      margin-bottom: 24px;
+      align-items: center; gap: 6px;
+    }
+    .mobile-logo .brand-logo-dot { width: 7px; height: 7px; }
+
+    /* Form heading */
+    .form-heading {
+      font-size: 22px; font-weight: 800;
+      color: #111d41; margin: 0 0 4px;
+    }
+    .form-sub {
+      font-size: 13px; color: var(--muted);
+      margin: 0 0 24px;
+    }
+
+    /* ── TAB SWITCHER (matches .crumb pattern) ── */
+    .auth-tabs {
+      display: flex;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 5px;
+      margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .auth-tab {
+      flex: 1;
+      padding: 9px 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--muted);
+      background: transparent;
+      transition: background .15s, color .15s, box-shadow .15s;
+      font-family: inherit;
+    }
+    .auth-tab.active {
+      background: linear-gradient(135deg, #ff6600 0%, #ff8c00 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(255,102,0,.3);
+    }
+
+    /* ── FORM CARD ────────────────────────────── */
+    .form-card {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+    }
+
+    /* ── ALERT BANNERS ────────────────────────── */
+    .auth-alert {
+      display: none;
+      align-items: flex-start;
+      gap: 10px;
+      border-radius: 10px;
+      padding: 11px 13px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .auth-alert.error   { background: #fff4f4; border: 1px solid #fca5a5; color: #b91c1c; }
+    .auth-alert.success { background: #f0fff6; border: 1px solid #86efac; color: #166534; }
+    .auth-alert.show    { display: flex; }
+    .alert-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+
+    /* ── FIELD GROUPS ─────────────────────────── */
+    .field-group { margin-bottom: 14px; }
+    .field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #3a475f;
+      letter-spacing: .03em;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .field-label .label-hint {
+      text-transform: none;
+      font-weight: 400;
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0;
+    }
+
+    /* Input wrapper with leading icon */
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-icon {
+      position: absolute;
+      left: 12px;
+      color: #9bb0cc;
+      display: flex;
+      align-items: center;
+      pointer-events: none;
+    }
+    .input-wrap input {
+      width: 100%;
+      padding: 11px 12px 11px 40px;
+      border: 1px solid #dce5f5;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      background: #fafcff;
+      transition: border-color .15s, box-shadow .15s, background .15s;
+      outline: none;
+    }
+    .input-wrap input::placeholder { color: #b8c8e0; }
+    .input-wrap input:focus {
+      border-color: #ff6600;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(255,102,0,.12);
+    }
+    .input-wrap input:focus + .input-icon,
+    .input-wrap:focus-within .input-icon { color: #ff6600; }
+
+    /* Password toggle button */
+    .pw-toggle {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #9bb0cc;
+      display: flex;
+      align-items: center;
+      padding: 4px;
+      border-radius: 6px;
+      transition: color .15s, background .15s;
+    }
+    .pw-toggle:hover { color: #ff6600; background: #fff3ea; }
+
+    /* Forgot password link */
+    .forgot-link {
+      display: block;
+      text-align: right;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ff6600;
+      text-decoration: none;
+      margin-top: 6px;
+    }
+    .forgot-link:hover { text-decoration: underline; }
+
+    /* ── ROLE SELECTOR (matches .path-card style) ── */
+    .role-selector-label {
+      font-size: 12px; font-weight: 700;
+      color: #3a475f; text-transform: uppercase;
+      letter-spacing: .03em; margin-bottom: 8px;
+      display: block;
+    }
+    .role-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .role-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 14px 10px;
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      background: #fafcff;
+      cursor: pointer;
+      transition: border-color .15s, background .15s, box-shadow .15s, transform .1s;
+      font-family: inherit;
+      position: relative;
+    }
+    .role-card:hover {
+      border-color: #ffc499;
+      background: #fff8f3;
+      transform: translateY(-1px);
+    }
+    .role-card.selected {
+      border-color: #ff6600;
+      background: #fff8f3;
+      box-shadow: 0 4px 14px rgba(255,102,0,.15);
+    }
+    .role-card.selected::after {
+      content: '✓';
+      position: absolute;
+      top: 8px; right: 10px;
+      font-size: 11px; font-weight: 800;
+      color: #ff6600;
+    }
+    .role-card-icon {
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      display: grid; place-items: center;
+      font-size: 18px;
+    }
+    .role-card[data-role="jobseeker"] .role-card-icon { background: #fdeee1; }
+    .role-card[data-role="employer"]  .role-card-icon { background: #e8f0fe; }
+    .role-card-name {
+      font-size: 13px; font-weight: 700;
+      color: #111d41;
+    }
+    .role-card-desc {
+      font-size: 11px; color: var(--muted);
+      text-align: center; line-height: 1.4;
+    }
+
+    /* ── PRIMARY BUTTON ───────────────────────── */
+    .auth-btn {
+      width: 100%;
+      padding: 13px 16px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      position: relative;
+      transition: background .15s, box-shadow .15s, transform .1s;
+      letter-spacing: .01em;
+    }
+    .auth-btn.primary {
+      background: linear-gradient(135deg, #ff6600 0%, #ff8c00 100%);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(255,102,0,.35);
+    }
+    .auth-btn.primary:hover {
+      background: linear-gradient(135deg, #e65500 0%, #ff7a00 100%);
+      box-shadow: 0 6px 18px rgba(255,102,0,.45);
+      transform: translateY(-1px);
+    }
+    .auth-btn.primary:active { transform: translateY(0); }
+    .auth-btn.loading { pointer-events: none; opacity: .8; }
+
+    /* Spinner */
+    .btn-spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      position: absolute;
+      right: 16px;
+      top: 50%; transform: translateY(-50%);
+    }
+    .auth-btn.loading .btn-spinner { display: block; }
+    @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+
+    /* ── DIVIDER & SWITCH LINK ────────────────── */
+    .auth-divider {
+      display: flex; align-items: center; gap: 10px;
+      color: var(--muted); font-size: 12px;
+      margin: 18px 0 14px;
+    }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+    .switch-line {
+      text-align: center; font-size: 13px; color: var(--muted);
+    }
+    .switch-line a {
+      color: #ff6600; font-weight: 700; text-decoration: none;
+    }
+    .switch-line a:hover { text-decoration: underline; }
+
+    /* ── ALREADY LOGGED IN BANNER ─────────────── */
+    .session-banner {
+      display: none;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .session-banner.show { display: block; }
+    .session-user {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 16px;
+    }
+    .session-avatar {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #ff6113 0%, #ffbc2a 100%);
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 16px; color: #fff;
+      flex-shrink: 0;
+    }
+    .session-name { font-weight: 700; font-size: 15px; color: #111d41; }
+    .session-role {
+      font-size: 12px; font-weight: 600;
+      background: #fff3ea; color: #e35f29;
+      border-radius: 999px; padding: 2px 9px;
+      display: inline-block; margin-top: 3px;
+    }
+    .session-actions { display: flex; gap: 8px; }
+    .session-actions .auth-btn { flex: 1; padding: 10px; font-size: 13px; }
+    .session-actions .auth-btn.secondary {
+      background: #fff; border: 1px solid var(--border);
+      color: #3a475f; box-shadow: none;
+    }
+    .session-actions .auth-btn.secondary:hover { background: #f8f9ff; }
+    .session-welcome {
+      font-size: 12px; color: var(--muted); margin-bottom: 12px;
+    }
+
+    /* ── FORM PANEL VISIBILITY ────────────────── */
+    .form-panel { display: none; }
+    .form-panel.active { display: block; }
+
+    /* ── RESPONSIVE ───────────────────────────── */
+    @media (max-width: 820px) {
+      .auth-split { grid-template-columns: 1fr; }
+      .auth-brand  { display: none; }
+      .mobile-logo { display: flex; }
+      .auth-form-panel { padding: 28px 16px; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="auth-split">
+
+      <!-- ═══════════════════════════════════════
+           LEFT – Brand panel
+           ═══════════════════════════════════════ -->
+      <aside class="auth-brand">
+        <div class="brand-logo">
+          Skillbridge<span class="brand-logo-dot"></span>
+        </div>
+
+        <h2 class="brand-headline">Your Career.<br>Verified &amp;<br>Matched.</h2>
+        <p class="brand-sub">AI-powered career development<br>for Singapore's modern workforce.</p>
+
+        <div class="brand-steps">
+          <div class="brand-step">
+            <div class="brand-step-num">1</div>
+            <div class="brand-step-text">
+              <strong>Verify Your Past</strong>
+              <span>Upload your CV &amp; certificates.<br>Get credentials verified instantly.</span>
+            </div>
+          </div>
+          <div class="brand-step">
+            <div class="brand-step-num">2</div>
+            <div class="brand-step-text">
+              <strong>Match Your Present</strong>
+              <span>AI extracts &amp; maps your skills<br>to a standardised taxonomy.</span>
+            </div>
+          </div>
+          <div class="brand-step">
+            <div class="brand-step-num">3</div>
+            <div class="brand-step-text">
+              <strong>Shape Your Future</strong>
+              <span>Discover career pathways, skill gaps<br>&amp; personalised learning plans.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="brand-stats">
+          <div class="brand-stat">
+            <strong>10k+</strong>
+            <span>Careers mapped</span>
+          </div>
+          <div class="brand-stat">
+            <strong>500+</strong>
+            <span>Role pathways</span>
+          </div>
+          <div class="brand-stat">
+            <strong>92%</strong>
+            <span>Match accuracy</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ═══════════════════════════════════════
+           RIGHT – Form panel
+           ═══════════════════════════════════════ -->
+      <main class="auth-form-panel">
+        <div class="auth-form-inner">
+
+          <!-- Mobile logo (hidden on desktop) -->
+          <div class="mobile-logo">
+            Skillbridge<span class="brand-logo-dot"></span>
+          </div>
+
+          <!-- ── Already logged in ── -->
+          <div class="session-banner" id="sessionBanner">
+            <p class="session-welcome">You're already signed in as</p>
+            <div class="session-user">
+              <div class="session-avatar" id="sessionInitials">SC</div>
+              <div>
+                <div class="session-name" id="sessionName">Sarah Chen</div>
+                <span class="session-role" id="sessionRole">Job Seeker</span>
+              </div>
+            </div>
+            <div class="session-actions">
+              <a href="past.html" class="auth-btn primary" id="continueBtn"
+                 style="text-align:center;text-decoration:none;display:inline-block;">
+                Continue journey →
+              </a>
+              <button class="auth-btn secondary" id="logoutBtn">Sign out</button>
+            </div>
+          </div>
+
+          <!-- ── Tab switcher ── -->
+          <div id="authTabs">
+            <p class="form-heading">Welcome back</p>
+            <p class="form-sub">Sign in to continue your career journey.</p>
+
+            <div class="auth-tabs">
+              <button class="auth-tab active" data-tab="signin">Sign In</button>
+              <button class="auth-tab"        data-tab="signup">Create Account</button>
+            </div>
+
+            <!-- ══ SIGN IN PANEL ══ -->
+            <div class="form-panel active" id="panel-signin">
+              <div class="form-card">
+                <div class="auth-alert error"   id="signin-error">
+                  <span class="alert-icon">⚠</span><span id="signin-error-msg"></span>
+                </div>
+                <div class="auth-alert success" id="signin-success">
+                  <span class="alert-icon">✓</span><span id="signin-success-msg"></span>
+                </div>
+
+                <form id="signInForm" novalidate>
+                  <!-- Email -->
+                  <div class="field-group">
+                    <label class="field-label" for="si-email">Email Address</label>
+                    <div class="input-wrap">
+                      <span class="input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                        </svg>
+                      </span>
+                      <input type="email" id="si-email" autocomplete="email"
+                             placeholder="you@email.com" required />
+                    </div>
+                  </div>
+
+                  <!-- Password -->
+                  <div class="field-group">
+                    <label class="field-label" for="si-password">Password</label>
+                    <div class="input-wrap">
+                      <span class="input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                      </span>
+                      <input type="password" id="si-password" autocomplete="current-password"
+                             placeholder="Enter your password" required />
+                      <button type="button" class="pw-toggle" data-target="si-password" tabindex="-1" aria-label="Show password">
+                        <svg class="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      </button>
+                    </div>
+                    <a class="forgot-link" href="#">Forgot password?</a>
+                  </div>
+
+                  <button type="submit" class="auth-btn primary" id="si-submit">
+                    Sign In →
+                    <span class="btn-spinner"></span>
+                  </button>
+                </form>
+              </div>
+
+              <div class="auth-divider">or</div>
+              <p class="switch-line">
+                Don't have an account? <a href="#" id="goSignup">Create one →</a>
+              </p>
+            </div>
+
+            <!-- ══ SIGN UP PANEL ══ -->
+            <div class="form-panel" id="panel-signup">
+              <div class="form-card">
+                <div class="auth-alert error"   id="signup-error">
+                  <span class="alert-icon">⚠</span><span id="signup-error-msg"></span>
+                </div>
+                <div class="auth-alert success" id="signup-success">
+                  <span class="alert-icon">✓</span><span id="signup-success-msg"></span>
+                </div>
+
+                <form id="signUpForm" novalidate>
+                  <!-- Full name -->
+                  <div class="field-group">
+                    <label class="field-label" for="su-name">Full Name</label>
+                    <div class="input-wrap">
+                      <span class="input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
+                        </svg>
+                      </span>
+                      <input type="text" id="su-name" autocomplete="name"
+                             placeholder="Sarah Chen" required />
+                    </div>
+                  </div>
+
+                  <!-- Email -->
+                  <div class="field-group">
+                    <label class="field-label" for="su-email">Email Address</label>
+                    <div class="input-wrap">
+                      <span class="input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                        </svg>
+                      </span>
+                      <input type="email" id="su-email" autocomplete="email"
+                             placeholder="you@email.com" required />
+                    </div>
+                  </div>
+
+                  <!-- Password -->
+                  <div class="field-group">
+                    <label class="field-label" for="su-password">
+                      Password <span class="label-hint">(min. 8 characters)</span>
+                    </label>
+                    <div class="input-wrap">
+                      <span class="input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                      </span>
+                      <input type="password" id="su-password" autocomplete="new-password"
+                             placeholder="Create a password" minlength="8" required />
+                      <button type="button" class="pw-toggle" data-target="su-password" tabindex="-1" aria-label="Show password">
+                        <svg class="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Confirm password -->
+                  <div class="field-group">
+                    <label class="field-label" for="su-confirm">Confirm Password</label>
+                    <div class="input-wrap">
+                      <span class="input-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                      </span>
+                      <input type="password" id="su-confirm" autocomplete="new-password"
+                             placeholder="Repeat your password" required />
+                      <button type="button" class="pw-toggle" data-target="su-confirm" tabindex="-1" aria-label="Show password">
+                        <svg class="eye-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Role selector -->
+                  <input type="hidden" id="su-role" value="jobseeker" />
+                  <span class="role-selector-label">I am a…</span>
+                  <div class="role-grid">
+                    <button type="button" class="role-card selected" data-role="jobseeker">
+                      <div class="role-card-icon">👤</div>
+                      <span class="role-card-name">Job Seeker</span>
+                      <span class="role-card-desc">Map skills &amp; find career pathways</span>
+                    </button>
+                    <button type="button" class="role-card" data-role="employer">
+                      <div class="role-card-icon">🏢</div>
+                      <span class="role-card-name">Employer</span>
+                      <span class="role-card-desc">Search talent &amp; assess readiness</span>
+                    </button>
+                  </div>
+
+                  <button type="submit" class="auth-btn primary" id="su-submit">
+                    Create Account →
+                    <span class="btn-spinner"></span>
+                  </button>
+                </form>
+              </div>
+
+              <div class="auth-divider">or</div>
+              <p class="switch-line">
+                Already have an account? <a href="#" id="goSignin">Sign in →</a>
+              </p>
+            </div>
+
+          </div><!-- /authTabs -->
+        </div><!-- /auth-form-inner -->
+      </main>
+
+    </div><!-- /auth-split -->
+  </div>
+
+  <script src="auth.js"></script>
+  <script>
+    /* ── Tab switcher ──────────────────────── */
+    function switchTab(name) {
+      document.querySelectorAll('.auth-tab').forEach(t =>
+        t.classList.toggle('active', t.dataset.tab === name));
+      document.querySelectorAll('.form-panel').forEach(p =>
+        p.classList.toggle('active', p.id === `panel-${name}`));
+      document.querySelector('.form-heading').textContent =
+        name === 'signin' ? 'Welcome back' : 'Create your account';
+      document.querySelector('.form-sub').textContent =
+        name === 'signin'
+          ? 'Sign in to continue your career journey.'
+          : 'Join Skillbridge and shape your future.';
+    }
+    document.querySelectorAll('.auth-tab').forEach(t =>
+      t.addEventListener('click', () => switchTab(t.dataset.tab)));
+    document.getElementById('goSignup')?.addEventListener('click', e => { e.preventDefault(); switchTab('signup'); });
+    document.getElementById('goSignin')?.addEventListener('click', e => { e.preventDefault(); switchTab('signin'); });
+
+    /* ── Role card selector ─────────────────── */
+    document.querySelectorAll('.role-card').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.role-card').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        document.getElementById('su-role').value = btn.dataset.role;
+      });
+    });
+
+    /* ── Password visibility toggle ─────────── */
+    document.querySelectorAll('.pw-toggle').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        const isText = input.type === 'text';
+        input.type = isText ? 'password' : 'text';
+        btn.querySelector('.eye-icon').style.opacity = isText ? '1' : '0.4';
+      });
+    });
+  </script>
+</body>
+</html>

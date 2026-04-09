@@ -1,0 +1,142 @@
+/* ── Shared App Nav ──────────────────────────────────────────── */
+.app-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 28px;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.app-nav .nav-logo {
+  font-size: 20px;
+  font-weight: 800;
+  color: #13234b;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.app-nav .nav-logo-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #ff6600;
+  display: inline-block;
+}
+
+/* Steps breadcrumb — centred */
+.app-nav .nav-steps {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.app-nav .nav-crumb {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: #f8f9ff;
+  text-decoration: none;
+  transition: background .15s, color .15s;
+}
+.app-nav .nav-crumb:hover { background: #eef1ff; }
+.app-nav .nav-crumb.active {
+  background: #ffedf1;
+  color: #ff4300;
+  font-weight: 700;
+}
+.app-nav .nav-crumb span {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #fed4c2;
+  display: grid; place-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: #d7431a;
+  flex-shrink: 0;
+}
+.app-nav .nav-crumb.active span {
+  background: #ff6600;
+  color: #fff;
+}
+
+/* User section — right side */
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.nav-avatar {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff6113 0%, #ffbc2a 100%);
+  display: grid; place-items: center;
+  font-size: 12px; font-weight: 800; color: #fff;
+  flex-shrink: 0;
+}
+.nav-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111d41;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-role-pill {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #fff3ea;
+  color: #e35f29;
+}
+.nav-logout-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5a6580;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.nav-logout-btn:hover {
+  background: #fff4f4;
+  color: #d64040;
+  border-color: #fca5a5;
+}
+
+/* Guest state */
+.nav-guest {
+  display: flex; gap: 8px; align-items: center;
+}
+.nav-signin-link {
+  font-size: 12px; font-weight: 700;
+  color: #ff6600; text-decoration: none;
+  padding: 7px 14px;
+  border: 1px solid #ffc499;
+  border-radius: 8px;
+  transition: background .15s;
+}
+.nav-signin-link:hover { background: #fff8f3; }
+
+/* Responsive */
+@media (max-width: 680px) {
+  .app-nav { padding: 10px 14px; }
+  .app-nav .nav-steps { display: none; }
+  .nav-name, .nav-role-pill { display: none; }
+}

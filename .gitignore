@@ -1,0 +1,16 @@
+# Environment — never commit secrets
+.env
+
+# Dependencies
+node_modules/
+
+# Database and user uploads
+data/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db

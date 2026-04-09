@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Skillbridge – Resume Builder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="resume.css" />
+  <link rel="stylesheet" href="nav.css" />
+  <style>
+    body { margin: 0; padding: 0; }
+    .app { padding: 0; }
+    .rb-layout { height: calc(100vh - 57px); }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Shared nav -->
+    <div id="app-nav"></div>
+
+    <main class="rb-layout">
+
+      <!-- ── Left panel: Editor ── -->
+      <aside class="rb-editor">
+
+        <h2 class="rb-heading">Resume Builder</h2>
+        <p class="rb-sub">Fill in your details. The preview updates live.</p>
+
+        <!-- ── PERSONAL INFO ── -->
+        <div class="rb-section" id="sec-personal">
+          <div class="rb-section-header" data-toggle="personal">
+            <span class="rb-section-icon">👤</span>
+            <strong>Personal Info</strong>
+            <svg class="rb-chevron" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+          </div>
+          <div class="rb-section-body" id="body-personal">
+            <div class="rb-field-row">
+              <label>Full Name
+                <input type="text" id="f-name" placeholder="Sarah Chen" value="Sarah Chen" />
+              </label>
+              <label>Job Title
+                <input type="text" id="f-title" placeholder="Senior UX Designer" value="Senior UX Designer" />
+              </label>
+            </div>
+            <div class="rb-field-row">
+              <label>Email
+                <input type="email" id="f-email" placeholder="sarah@email.com" value="sarah.chen@email.com" />
+              </label>
+              <label>Phone
+                <input type="tel" id="f-phone" placeholder="+65 9123 4567" value="+65 9123 4567" />
+              </label>
+            </div>
+            <div class="rb-field-row">
+              <label>Location
+                <input type="text" id="f-location" placeholder="Singapore" value="Singapore" />
+              </label>
+              <label>LinkedIn / Portfolio
+                <input type="text" id="f-linkedin" placeholder="linkedin.com/in/sarahchen" value="linkedin.com/in/sarahchen" />
+              </label>
+            </div>
+            <label>Professional Summary
+              <textarea id="f-summary" rows="3" placeholder="Brief overview of your career and strengths...">Award-winning UX Designer with 8+ years crafting intuitive digital experiences. Expert in user research, prototyping, and cross-functional collaboration to deliver products used by millions.</textarea>
+            </label>
+          </div>
+        </div>
+
+        <!-- ── WORK EXPERIENCE ── -->
+        <div class="rb-section" id="sec-experience">
+          <div class="rb-section-header" data-toggle="experience">
+            <span class="rb-section-icon">💼</span>
+            <strong>Work Experience</strong>
+            <svg class="rb-chevron" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+          </div>
+          <div class="rb-section-body" id="body-experience">
+            <div id="experience-list"></div>
+            <button class="rb-add-btn" id="add-experience">+ Add Experience</button>
+          </div>
+        </div>
+
+        <!-- ── EDUCATION ── -->
+        <div class="rb-section" id="sec-education">
+          <div class="rb-section-header" data-toggle="education">
+            <span class="rb-section-icon">🎓</span>
+            <strong>Education</strong>
+            <svg class="rb-chevron" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+          </div>
+          <div class="rb-section-body" id="body-education">
+            <div id="education-list"></div>
+            <button class="rb-add-btn" id="add-education">+ Add Education</button>
+          </div>
+        </div>
+
+        <!-- ── SKILLS ── -->
+        <div class="rb-section" id="sec-skills">
+          <div class="rb-section-header" data-toggle="skills">
+            <span class="rb-section-icon">⚡</span>
+            <strong>Skills</strong>
+            <svg class="rb-chevron" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+          </div>
+          <div class="rb-section-body" id="body-skills">
+            <label>Add skills (comma-separated)
+              <input type="text" id="f-skills" placeholder="Figma, User Research, Prototyping…" value="Figma, Adobe XD, User Research, Prototyping, Wireframing, Usability Testing, Design Systems, HTML/CSS, Accessibility" />
+            </label>
+            <div id="skill-tags" class="skill-tag-group"></div>
+          </div>
+        </div>
+
+        <!-- ── CERTIFICATIONS ── -->
+        <div class="rb-section" id="sec-certs">
+          <div class="rb-section-header" data-toggle="certs">
+            <span class="rb-section-icon">🏅</span>
+            <strong>Certifications</strong>
+            <svg class="rb-chevron" viewBox="0 0 20 20"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+          </div>
+          <div class="rb-section-body" id="body-certs">
+            <div id="certs-list"></div>
+            <button class="rb-add-btn" id="add-cert">+ Add Certification</button>
+          </div>
+        </div>
+
+        <div class="rb-actions">
+          <button class="btn primary" id="btn-download">⬇ Download PDF</button>
+          <a href="past.html" class="btn secondary">← Back</a>
+        </div>
+        <a href="future.html" class="btn primary full-width" style="margin-top:10px;display:block;text-align:center;text-decoration:none;">Explore My Future →</a>
+      </aside>
+
+      <!-- ── Right panel: Live Preview ── -->
+      <section class="rb-preview-wrapper">
+        <div class="rb-preview-toolbar">
+          <span class="rb-preview-label">Live Preview</span>
+          <div class="rb-template-switcher">
+            <button class="tmpl-btn active" data-theme="classic">Classic</button>
+            <button class="tmpl-btn" data-theme="modern">Modern</button>
+            <button class="tmpl-btn" data-theme="minimal">Minimal</button>
+          </div>
+        </div>
+
+        <div class="rb-preview-scroll">
+          <div class="resume-doc" id="resume-preview" data-theme="classic">
+
+            <!-- HEADER -->
+            <header class="rv-header">
+              <div class="rv-name-block">
+                <h1 class="rv-name" id="rv-name">Sarah Chen</h1>
+                <p class="rv-title" id="rv-title">Senior UX Designer</p>
+              </div>
+              <div class="rv-contact" id="rv-contact"></div>
+            </header>
+
+            <!-- SUMMARY -->
+            <div class="rv-section" id="rv-summary-wrap">
+              <div class="rv-section-title">Summary</div>
+              <p class="rv-summary" id="rv-summary"></p>
+            </div>
+
+            <!-- EXPERIENCE -->
+            <div class="rv-section" id="rv-exp-wrap">
+              <div class="rv-section-title">Experience</div>
+              <div id="rv-experience"></div>
+            </div>
+
+            <!-- EDUCATION -->
+            <div class="rv-section" id="rv-edu-wrap">
+              <div class="rv-section-title">Education</div>
+              <div id="rv-education"></div>
+            </div>
+
+            <!-- SKILLS -->
+            <div class="rv-section" id="rv-skills-wrap">
+              <div class="rv-section-title">Skills</div>
+              <div class="rv-skills-list" id="rv-skills"></div>
+            </div>
+
+            <!-- CERTS -->
+            <div class="rv-section" id="rv-certs-wrap">
+              <div class="rv-section-title">Certifications</div>
+              <div id="rv-certs"></div>
+            </div>
+
+          </div><!-- /resume-doc -->
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Experience entry template (hidden) -->
+  <template id="tpl-experience">
+    <div class="rb-entry" data-entry="experience">
+      <div class="rb-entry-header">
+        <strong class="rb-entry-label">New Experience</strong>
+        <button class="rb-remove-btn" title="Remove">✕</button>
+      </div>
+      <div class="rb-field-row">
+        <label>Job Title <input type="text" name="exp-role" placeholder="Senior UX Designer" /></label>
+        <label>Company <input type="text" name="exp-company" placeholder="TechCorp" /></label>
+      </div>
+      <div class="rb-field-row">
+        <label>Start Date <input type="text" name="exp-start" placeholder="Jan 2022" /></label>
+        <label>End Date <input type="text" name="exp-end" placeholder="Present" /></label>
+      </div>
+      <label>Responsibilities / Achievements
+        <textarea name="exp-desc" rows="3" placeholder="• Led redesign of mobile app…&#10;• Increased user retention by 30%…"></textarea>
+      </label>
+    </div>
+  </template>
+
+  <!-- Education entry template -->
+  <template id="tpl-education">
+    <div class="rb-entry" data-entry="education">
+      <div class="rb-entry-header">
+        <strong class="rb-entry-label">New Education</strong>
+        <button class="rb-remove-btn" title="Remove">✕</button>
+      </div>
+      <div class="rb-field-row">
+        <label>Degree <input type="text" name="edu-degree" placeholder="B.Sc. Computer Science" /></label>
+        <label>Institution <input type="text" name="edu-school" placeholder="NUS" /></label>
+      </div>
+      <div class="rb-field-row">
+        <label>Graduation Year <input type="text" name="edu-year" placeholder="2017" /></label>
+        <label>GPA / Honours <input type="text" name="edu-gpa" placeholder="3.8 / 4.0" /></label>
+      </div>
+    </div>
+  </template>
+
+  <!-- Certification entry template -->
+  <template id="tpl-cert">
+    <div class="rb-entry" data-entry="cert">
+      <div class="rb-entry-header">
+        <strong class="rb-entry-label">New Certification</strong>
+        <button class="rb-remove-btn" title="Remove">✕</button>
+      </div>
+      <div class="rb-field-row">
+        <label>Certificate Name <input type="text" name="cert-name" placeholder="Google UX Design" /></label>
+        <label>Issuer <input type="text" name="cert-issuer" placeholder="Google / Coursera" /></label>
+      </div>
+      <div class="rb-field-row">
+        <label>Date Issued <input type="text" name="cert-date" placeholder="Mar 2023" /></label>
+        <label>Credential ID <input type="text" name="cert-id" placeholder="GUX-2023-0042 (optional)" /></label>
+      </div>
+    </div>
+  </template>
+
+  <script src="nav.js"></script>
+  <script>Nav.init('resume');</script>
+  <script src="resume.js"></script>
+</body>
+</html>

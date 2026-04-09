@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Skillbridge – Future Pathways</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="future.css" />
+  <link rel="stylesheet" href="nav.css" />
+  <style>
+    body { margin: 0; padding: 0; }
+    .app { padding: 0; }
+  </style>
+</head>
+<body>
+  <div class="app ft-app">
+
+    <!-- Shared nav -->
+    <div id="app-nav"></div>
+
+    <!-- ── Hero strip ── -->
+    <div class="ft-hero">
+      <div class="ft-hero-inner">
+        <div class="ft-hero-avatar" id="hero-initials">?</div>
+        <div>
+          <h1 class="ft-hero-name" id="hero-name">Loading…</h1>
+          <p class="ft-hero-role" id="hero-role">Singapore</p>
+        </div>
+        <div class="ft-hero-badges">
+          <span class="ft-badge green" id="hero-skills-badge">Skills Verified</span>
+          <span class="ft-badge orange">Profile Active</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ft-main">
+
+      <!-- ═══════════════════════════════════════
+           SECTION 1 – CAREER PATHWAY VISUALIZATION
+           ═══════════════════════════════════════ -->
+      <section class="ft-section" id="sec-pathways">
+        <div class="ft-section-header">
+          <div>
+            <h2 class="ft-section-title">Career Pathway Recommendations</h2>
+            <p class="ft-section-sub">AI-generated from your CV · Live job counts via Google Jobs</p>
+          </div>
+          <div class="ft-data-sources">
+            <span class="ds-badge google">G Google Jobs</span>
+            <span class="ds-badge coursera">Coursera</span>
+            <span class="ds-badge udemy">Udemy</span>
+          </div>
+        </div>
+
+        <!-- Current node + paths -->
+        <div class="pathway-canvas">
+
+          <!-- Current role node -->
+          <div class="current-role-node">
+            <div class="crn-label">CURRENT ROLE</div>
+            <div class="crn-title" id="crn-title">Loading…</div>
+            <div class="crn-skills" id="crn-skills">—</div>
+            <div class="crn-score"><span class="crn-ring" id="crn-ring">—</span> Verified</div>
+          </div>
+
+          <!-- Arrow connector -->
+          <div class="path-arrow-col">
+            <svg class="path-arrows-svg" id="arrows-svg" aria-hidden="true"></svg>
+          </div>
+
+          <!-- Path cards grid -->
+          <div class="path-cards-grid" id="path-cards">
+            <!-- injected by JS -->
+          </div>
+        </div>
+
+        <!-- Job openings breakdown -->
+        <div class="job-market-bar" id="job-market-bar" style="display:none;">
+          <div class="jmb-inner">
+            <div class="jmb-label">Live Job Openings for <strong id="jmb-role-name">—</strong></div>
+            <div class="jmb-sources" id="jmb-sources"></div>
+            <div class="jmb-total">Total: <strong id="jmb-total">—</strong> openings</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════
+           SECTION 2 – SKILL GAP ANALYSIS
+           ═══════════════════════════════════════ -->
+      <section class="ft-section ft-section-hidden" id="sec-gap">
+        <div class="ft-section-header">
+          <div>
+            <h2 class="ft-section-title">Skill Gap Analysis</h2>
+            <p class="ft-section-sub">Your current skills vs what's required for <strong id="gap-role-label">—</strong></p>
+          </div>
+          <div class="readiness-badge-wrap">
+            <div class="readiness-badge" id="readiness-badge">
+              <svg class="readiness-ring" viewBox="0 0 60 60">
+                <circle cx="30" cy="30" r="24" fill="none" stroke="#eef0f8" stroke-width="6"/>
+                <circle cx="30" cy="30" r="24" fill="none" stroke="#ff6600" stroke-width="6"
+                  stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="150.8"
+                  id="readiness-arc" transform="rotate(-90 30 30)"/>
+              </svg>
+              <span class="readiness-pct" id="readiness-pct">0%</span>
+            </div>
+            <span class="readiness-lbl">Role Readiness</span>
+          </div>
+        </div>
+
+        <div class="gap-layout">
+
+          <!-- Skills you already have -->
+          <div class="gap-col">
+            <h3 class="gap-col-title green-title">✓ Skills You Have</h3>
+            <div id="have-skills" class="skill-match-list"></div>
+          </div>
+
+          <!-- Skills you need to develop -->
+          <div class="gap-col">
+            <h3 class="gap-col-title red-title">⚡ Skills to Develop</h3>
+            <div id="gap-skills" class="skill-match-list"></div>
+          </div>
+
+          <!-- Bar chart -->
+          <div class="gap-chart-col">
+            <h3 class="gap-col-title">Skill Coverage</h3>
+            <div id="skill-bars" class="skill-bars"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ═══════════════════════════════════════
+           SECTION 3 – LEARNING RECOMMENDATIONS
+           ═══════════════════════════════════════ -->
+      <section class="ft-section ft-section-hidden" id="sec-learning">
+        <div class="ft-section-header">
+          <div>
+            <h2 class="ft-section-title">Learning Recommendations</h2>
+            <p class="ft-section-sub">Personalised courses to close your skill gaps for <strong id="learn-role-label">—</strong></p>
+          </div>
+          <div class="platform-filter" id="platform-filter">
+            <button class="pf-btn active" data-platform="all">All</button>
+            <button class="pf-btn coursera" data-platform="Coursera">Coursera</button>
+            <button class="pf-btn udemy" data-platform="Udemy">Udemy</button>
+            <button class="pf-btn linkedin" data-platform="LinkedIn Learning">LinkedIn Learning</button>
+          </div>
+        </div>
+
+        <div class="learning-path-timeline" id="learning-timeline">
+          <!-- injected by JS -->
+        </div>
+      </section>
+
+    </div><!-- /ft-main -->
+  </div>
+
+  <script src="nav.js"></script>
+  <script>Nav.init('future');</script>
+  <script src="future.js"></script>
+</body>
+</html>

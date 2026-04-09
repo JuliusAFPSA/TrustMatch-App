@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Skillbridge – Verify Your Past</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="nav.css" />
+  <style>
+    body { margin: 0; padding: 0; }
+    .app { padding: 0; }
+
+    .past-main {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    /* Page heading */
+    .page-hero {
+      background: linear-gradient(135deg, #13234b 0%, #1e3a72 100%);
+      border-radius: 20px;
+      padding: 24px 28px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .page-hero-icon {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      background: rgba(255,102,0,.2);
+      display: grid; place-items: center;
+      font-size: 24px; flex-shrink: 0;
+    }
+    .page-hero h1 { font-size: 20px; font-weight: 800; margin: 0 0 4px; }
+    .page-hero p  { font-size: 13px; color: #8fa8d8; margin: 0; }
+
+    /* ── Upload card ── */
+    .upload-tabs {
+      display: flex; gap: 6px;
+      background: #f8f9ff;
+      border-radius: 12px; padding: 4px;
+      margin-bottom: 16px;
+    }
+    .upload-tab {
+      flex: 1; padding: 9px 12px;
+      border: none; border-radius: 9px;
+      font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      color: var(--muted); background: transparent;
+      transition: background .15s, color .15s, box-shadow .15s;
+    }
+    .upload-tab.active {
+      background: #fff;
+      color: #111d41;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+    .upload-panel { display: none; }
+    .upload-panel.active { display: block; }
+
+    /* Drop zone */
+    .drop-zone {
+      border: 2px dashed #d7e2f9;
+      border-radius: 14px;
+      padding: 36px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      cursor: pointer;
+      transition: background .15s, border-color .15s;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      background: #f1f7ff;
+      border-color: #a2b9f7;
+    }
+    .drop-zone-icon { font-size: 36px; margin-bottom: 10px; }
+    .drop-zone p { margin: 4px 0; }
+    .drop-zone .drop-hint { font-size: 12px; color: #b0bdd6; margin-top: 6px; }
+    .drop-zone .btn { margin-top: 14px; display: inline-block; }
+    .file-chosen {
+      margin-top: 12px; font-size: 13px;
+      color: #1c8e4e; font-weight: 600;
+      display: none;
+      align-items: center; gap: 6px;
+    }
+    .file-chosen.show { display: flex; }
+
+    /* Paste textarea */
+    .paste-area {
+      width: 100%; min-height: 200px;
+      padding: 12px; font-size: 13px;
+      font-family: inherit; color: var(--text);
+      border: 1px solid #dce5f5; border-radius: 12px;
+      resize: vertical; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      box-sizing: border-box;
+    }
+    .paste-area:focus {
+      border-color: #ff6600;
+      box-shadow: 0 0 0 3px rgba(255,102,0,.1);
+    }
+    .paste-hint { font-size: 12px; color: var(--muted); margin: 6px 0 14px; }
+
+    /* Upload button */
+    .upload-submit {
+      width: 100%; padding: 12px;
+      background: linear-gradient(135deg, #ff6600, #ff8c00);
+      color: #fff; border: none; border-radius: 10px;
+      font-size: 14px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      box-shadow: 0 4px 14px rgba(255,102,0,.3);
+      transition: opacity .15s;
+      position: relative;
+    }
+    .upload-submit:disabled { opacity: .6; cursor: not-allowed; }
+    .upload-submit .btn-spinner {
+      display: none; width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+      border-radius: 50%; animation: spin .6s linear infinite;
+      position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+    }
+    .upload-submit.loading .btn-spinner { display: block; }
+    .upload-submit.loading { pointer-events: none; }
+    @keyframes spin { to { transform: translateY(-50%) rotate(360deg); } }
+
+    /* Alert */
+    .parse-alert {
+      display: none; align-items: flex-start; gap: 10px;
+      border-radius: 10px; padding: 11px 14px;
+      font-size: 13px; margin-bottom: 14px;
+    }
+    /* display controlled only by .show — color classes never force display */
+    .parse-alert.show    { display: flex; }
+    .parse-alert.error   { background:#fff4f4; border:1px solid #fca5a5; color:#b91c1c; }
+    .parse-alert.success { background:#f0fff6; border:1px solid #86efac; color:#166534; }
+
+    /* Welcome banner */
+    .welcome-banner {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: #3a475f;
+    }
+    .welcome-banner .wb-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, #ff6113, #ffbc2a);
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 13px; color: #fff; flex-shrink: 0;
+    }
+    .welcome-banner strong { color: #111d41; }
+
+    /* ── Results sections ── */
+    .results-header {
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 12px;
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .results-title { font-size: 17px; font-weight: 800; color: #111d41; margin: 0; }
+    .results-meta  { font-size: 12px; color: var(--muted); }
+
+    .result-group { margin-bottom: 6px; }
+    .result-group-label {
+      font-size: 11px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); margin-bottom: 10px;
+    }
+
+    /* Individual items */
+    .cv-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid #f2f4fb;
+      align-items: start;
+    }
+    .cv-item:last-child { border-bottom: none; }
+    .cv-item-main {}
+    .cv-item-role  { font-size: 14px; font-weight: 700; color: #111d41; margin-bottom: 2px; }
+    .cv-item-org   { font-size: 13px; color: #5a6580; margin-bottom: 3px; }
+    .cv-item-dates { font-size: 12px; color: #8fa8d8; }
+    .cv-item-desc  {
+      font-size: 12px; color: #64748b;
+      margin-top: 6px; line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .cv-item-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+
+    /* Status badges — match styles.css .status pattern */
+    .v-badge {
+      font-size: 11px; font-weight: 700;
+      border-radius: 999px; padding: 4px 10px;
+      white-space: nowrap; display: inline-flex;
+      align-items: center; gap: 4px;
+    }
+    .v-badge.auto_verified        { background: #e5fff1; color: #1c8e4e; }
+    .v-badge.pending              { background: #fff4db; color: #de7c20; }
+    .v-badge.verification_requested { background: #e8f0fe; color: #0a66c2; }
+    .v-badge.verified             { background: #e5fff1; color: #1c8e4e; }
+
+    /* Verify button */
+    .verify-btn {
+      font-size: 11px; font-weight: 700;
+      padding: 5px 11px; border-radius: 8px;
+      border: 1px solid #d5def8;
+      background: #fff; color: #1f3f72;
+      cursor: pointer; font-family: inherit;
+      transition: background .15s, border-color .15s;
+    }
+    .verify-btn:hover { background: #f0f4ff; border-color: #a2b4e8; }
+    .verify-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* Skills chips */
+    .skill-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .skill-chip  {
+      background: #fff3ea; color: #e35f29;
+      border-radius: 999px; padding: 4px 12px;
+      font-size: 12px; font-weight: 600;
+    }
+
+    /* Progress summary bar */
+    .summary-pills {
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .summary-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: #f8f9ff; border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px 14px;
+      font-size: 13px; font-weight: 600; color: #3a475f;
+    }
+    .summary-pill strong { color: #111d41; font-size: 16px; }
+
+    /* Continue button */
+    .continue-bar {
+      display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center; padding: 32px 20px;
+      color: var(--muted); font-size: 14px;
+    }
+    .empty-state-icon { font-size: 32px; margin-bottom: 8px; }
+
+    /* ── Review step ── */
+    .review-progress-bar {
+      background: #e8edf8; border-radius: 999px; height: 6px; margin: 10px 0 6px;
+    }
+    .review-progress-fill {
+      background: linear-gradient(90deg,#ff6600,#ff8c00);
+      border-radius: 999px; height: 6px;
+      transition: width .4s ease;
+    }
+    .review-step-header {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 8px;
+    }
+    .review-step-title { font-size:15px; font-weight:800; color:#111d41; }
+    .review-step-meta  { font-size:12px; color:var(--muted); }
+
+    .review-group { margin-top: 4px; }
+    .review-group-label {
+      font-size:11px; font-weight:800; text-transform:uppercase;
+      letter-spacing:.08em; color:var(--muted); margin:14px 0 8px;
+    }
+
+    .review-item {
+      border: 1.5px solid #e8edf8;
+      border-radius: 14px; margin-bottom: 8px;
+      background: #fff; overflow: hidden;
+      transition: border-color .2s;
+    }
+    .review-item.needs-review  { border-color: #fbbf24; }
+    .review-item.confirmed     { border-color: #4ade80; }
+
+    .review-item-header {
+      display: flex; align-items: flex-start;
+      justify-content: space-between; gap:12px;
+      padding: 14px 16px; cursor: pointer;
+    }
+    .review-item-body { flex:1; min-width:0; }
+    .review-item-title { font-size:14px; font-weight:700; color:#111d41; }
+    .review-item-sub   { font-size:12px; color:#5a6580; margin-top:2px; }
+    .review-item-desc  { font-size:12px; color:#8fa8d8; margin-top:2px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .review-item-controls { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+
+    .ri-badge {
+      font-size:11px; font-weight:700; border-radius:999px;
+      padding:3px 9px; white-space:nowrap;
+    }
+    .ri-badge.needs-review { background:#fef9c3; color:#b45309; }
+    .ri-badge.confirmed    { background:#dcfce7; color:#166534; }
+    .ri-badge.ai-ok        { background:#f0f4ff; color:#3b5cc8; }
+
+    .ri-btn {
+      font-size:11px; font-weight:700; padding:5px 10px;
+      border-radius:8px; border:1px solid #d5def8;
+      background:#fff; color:#1f3f72; cursor:pointer;
+      font-family:inherit; transition:background .15s;
+    }
+    .ri-btn:hover { background:#f0f4ff; }
+    .ri-btn.confirm { background:#f0fff6; border-color:#86efac; color:#166534; }
+    .ri-btn.confirm:hover { background:#dcfce7; }
+
+    .review-edit-form {
+      border-top:1px solid #f2f4fb;
+      padding:14px 16px; background:#fafbff;
+      display:none;
+    }
+    .review-edit-form.open { display:block; }
+
+    .ef-grid {
+      display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;
+    }
+    .ef-grid .ef-full { grid-column:1/-1; }
+    .ef-label {
+      font-size:11px; font-weight:700; color:#5a6580;
+      display:block; margin-bottom:4px;
+    }
+    .ef-input {
+      width:100%; padding:8px 10px; font-size:13px;
+      border:1px solid #dce5f5; border-radius:8px;
+      font-family:inherit; color:var(--text); outline:none;
+      box-sizing:border-box; transition:border-color .15s;
+    }
+    .ef-input:focus { border-color:#ff6600; box-shadow:0 0 0 3px rgba(255,102,0,.1); }
+    textarea.ef-input { min-height:80px; resize:vertical; }
+
+    .ef-actions { display:flex; gap:8px; justify-content:flex-end; }
+    .ef-save {
+      padding:7px 16px; font-size:12px; font-weight:700;
+      background:linear-gradient(135deg,#ff6600,#ff8c00);
+      color:#fff; border:none; border-radius:8px;
+      cursor:pointer; font-family:inherit;
+    }
+    .ef-cancel {
+      padding:7px 12px; font-size:12px; font-weight:700;
+      background:#fff; border:1px solid #dce5f5; color:#5a6580;
+      border-radius:8px; cursor:pointer; font-family:inherit;
+    }
+
+    /* Skills editor */
+    .skills-editor { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+    .se-chip {
+      background:#fff3ea; color:#e35f29;
+      border-radius:999px; padding:5px 12px;
+      font-size:12px; font-weight:600;
+      display:inline-flex; align-items:center; gap:6px;
+    }
+    .se-chip button {
+      background:none; border:none; cursor:pointer;
+      color:#e35f29; font-size:13px; line-height:1;
+      padding:0; opacity:.7;
+    }
+    .se-chip button:hover { opacity:1; }
+    .se-add-row { display:flex; gap:8px; margin-top:4px; }
+    .se-add-input {
+      flex:1; padding:7px 10px; font-size:13px;
+      border:1px solid #dce5f5; border-radius:8px;
+      font-family:inherit; outline:none;
+    }
+    .se-add-input:focus { border-color:#ff6600; }
+    .se-add-btn {
+      padding:7px 14px; font-size:12px; font-weight:700;
+      background:#fff3ea; color:#e35f29; border:1px solid #ffd5b3;
+      border-radius:8px; cursor:pointer; font-family:inherit;
+    }
+
+    /* Build resume CTA */
+    .build-resume-bar {
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px; flex-wrap:wrap; margin-top:6px;
+      padding:16px 20px; background:#fff;
+      border:1px solid var(--border); border-radius:16px;
+    }
+    .build-resume-bar .br-text { font-size:13px; color:#5a6580; }
+    .build-resume-bar strong { color:#111d41; }
+
+    /* Confirm All Remaining — disabled state */
+    #btn-confirm-remaining:disabled {
+      opacity: 0.38;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
+    /* Sticky "Explore My Future" pill */
+    .explore-future-pill {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 900;
+    }
+    .explore-future-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      background: linear-gradient(135deg, #4f6ef7 0%, #7c3aed 100%);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      border-radius: 999px;
+      text-decoration: none;
+      box-shadow: 0 4px 20px rgba(79,110,247,0.45);
+      transition: transform 0.15s, box-shadow 0.15s;
+      white-space: nowrap;
+    }
+    .explore-future-link:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(79,110,247,0.55);
+    }
+    .explore-future-icon { font-size: 16px; }
+    @media (max-width: 500px) {
+      .explore-future-pill { bottom: 16px; right: 16px; }
+      .explore-future-link { font-size: 13px; padding: 10px 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Shared nav -->
+    <div id="app-nav"></div>
+
+    <div class="past-main">
+
+      <!-- Welcome banner -->
+      <div class="welcome-banner" id="welcome-banner" style="display:none;">
+        <div class="wb-avatar" id="wb-avatar">?</div>
+        <div>Welcome back, <strong id="wb-name">—</strong>! Upload or paste your CV below to get started.</div>
+      </div>
+
+      <!-- Hero -->
+      <div class="page-hero">
+        <div class="page-hero-icon">📄</div>
+        <div>
+          <h1>Verify Your Past</h1>
+          <p>Upload your CV or paste its text. We'll extract your experience, education and skills — and verify what we can automatically.</p>
+        </div>
+      </div>
+
+      <!-- ── Upload card ── -->
+      <div class="card" style="padding:20px;">
+        <div id="parse-alert-error" class="parse-alert error">
+          <span>⚠</span><span id="parse-alert-msg">Error</span>
+        </div>
+        <div id="parse-alert-success" class="parse-alert success">
+          <span>✓</span><span id="parse-success-msg">Success</span>
+        </div>
+
+        <div class="upload-tabs">
+          <button class="upload-tab active" data-tab="file">Upload File</button>
+          <button class="upload-tab"        data-tab="paste">Paste Text</button>
+        </div>
+
+        <!-- File upload panel -->
+        <div class="upload-panel active" id="up-file">
+          <div class="drop-zone" id="dropZone">
+            <div class="drop-zone-icon">☁️</div>
+            <p><strong>Drag &amp; drop your CV here</strong></p>
+            <p>or click to browse</p>
+            <p class="drop-hint">Supports PDF, DOCX, DOC, TXT · Max 10 MB</p>
+            <button type="button" class="btn secondary" id="browseBtn">Browse files</button>
+            <input type="file" id="fileInput" hidden accept=".pdf,.docx,.doc,.txt" />
+          </div>
+          <div class="file-chosen" id="fileChosen">
+            <span>📎</span><span id="fileChosenName">—</span>
+          </div>
+        </div>
+
+        <!-- Paste panel -->
+        <div class="upload-panel" id="up-paste">
+          <textarea class="paste-area" id="pasteArea"
+            placeholder="Paste your CV text here…&#10;&#10;Include sections like Work Experience, Education, Skills and Certifications for best results."></textarea>
+          <p class="paste-hint">Tip: Copy everything from your CV document and paste it here.</p>
+        </div>
+
+        <button class="upload-submit" id="submitCV">
+          Analyse CV →
+          <span class="btn-spinner"></span>
+        </button>
+      </div>
+
+      <!-- ── Results ── (hidden until CV parsed) -->
+      <div id="cv-results" style="display:none;">
+
+        <!-- Summary pills -->
+        <div class="card" style="padding:18px 20px;">
+          <div class="results-header">
+            <h2 class="results-title">CV Analysis Complete</h2>
+            <span class="results-meta" id="results-source">—</span>
+          </div>
+          <div class="summary-pills" id="summary-pills"></div>
+        </div>
+
+        <!-- Review & Confirm -->
+        <div class="card" style="padding:18px 20px;" id="review-card">
+          <div class="review-step-header">
+            <span class="review-step-title">Review & Confirm Extracted Data</span>
+            <span class="review-step-meta" id="review-progress-text">0 of 0 confirmed</span>
+          </div>
+          <div class="review-progress-bar">
+            <div class="review-progress-fill" id="review-progress-fill" style="width:0%"></div>
+          </div>
+          <p style="font-size:12px;color:var(--muted);margin:6px 0 12px;">Items marked <strong style="color:#b45309;">Needs Review</strong> were flagged by AI — check and confirm before building your resume.</p>
+
+          <!-- Experience -->
+          <div class="review-group" id="rg-exp" style="display:none;">
+            <div class="review-group-label">💼 Work Experience</div>
+            <div id="review-exp-list"></div>
+          </div>
+
+          <!-- Education -->
+          <div class="review-group" id="rg-edu" style="display:none;">
+            <div class="review-group-label">🎓 Education</div>
+            <div id="review-edu-list"></div>
+          </div>
+
+          <!-- Certifications -->
+          <div class="review-group" id="rg-cert" style="display:none;">
+            <div class="review-group-label">🏅 Certifications</div>
+            <div id="review-cert-list"></div>
+          </div>
+
+          <!-- Skills -->
+          <div class="review-group" id="rg-skills" style="display:none;">
+            <div class="review-group-label">⚡ Skills</div>
+            <div class="skills-editor" id="skills-editor"></div>
+            <div class="se-add-row">
+              <input class="se-add-input" id="se-add-input" placeholder="Add a skill…" />
+              <button class="se-add-btn" onclick="addSkillChip()">+ Add</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Build Resume CTA -->
+        <div class="build-resume-bar" id="build-resume-bar">
+          <div class="br-text"><strong id="br-confirmed-count">0</strong> items confirmed. Ready to build your resume.</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="ri-btn" id="btn-confirm-remaining" onclick="confirmAllItems()" disabled>Confirm All Remaining</button>
+            <a href="resume.html" class="btn primary" id="btn-build-resume" onclick="return onBuildResume()">Build Resume →</a>
+          </div>
+        </div>
+
+        <!-- Sticky "Explore My Future" pill — always visible once CV is loaded -->
+        <div class="explore-future-pill" id="explore-future-pill" style="display:none;">
+          <a href="future.html" class="explore-future-link">
+            <span class="explore-future-icon">🚀</span>
+            Explore My Future
+          </a>
+        </div>
+
+      </div><!-- /cv-results -->
+    </div>
+  </div>
+
+  <script src="nav.js"></script>
+  <script>
+    Nav.init('past');
+
+    // ── Tab switcher ──────────────────────────
+    document.querySelectorAll('.upload-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.upload-tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.upload-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('up-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ── Drop zone ─────────────────────────────
+    const dropZone  = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const browseBtn = document.getElementById('browseBtn');
+    const fileChosen = document.getElementById('fileChosen');
+    const fileChosenName = document.getElementById('fileChosenName');
+    let chosenFile = null;
+
+    browseBtn.addEventListener('click', e => { e.stopPropagation(); fileInput.click(); });
+    dropZone.addEventListener('click', () => fileInput.click());
+    ['dragenter','dragover'].forEach(ev =>
+      dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('dragover'); }));
+    ['dragleave','drop'].forEach(ev =>
+      dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('dragover'); }));
+    dropZone.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) setChosenFile(f); });
+    fileInput.addEventListener('change', () => { if (fileInput.files[0]) setChosenFile(fileInput.files[0]); });
+
+    function setChosenFile(f) {
+      chosenFile = f;
+      fileChosenName.textContent = f.name;
+      fileChosen.classList.add('show');
+    }
+
+    // ── Helpers ───────────────────────────────
+    function token() { return localStorage.getItem('sb_token'); }
+    function esc(s) { return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    function showAlert(type, msg) {
+      const errEl  = document.getElementById('parse-alert-error');
+      const succEl = document.getElementById('parse-alert-success');
+      errEl.classList.remove('show');
+      succEl.classList.remove('show');
+      if (type === 'error') {
+        document.getElementById('parse-alert-msg').textContent = msg;
+        errEl.classList.add('show');
+      } else if (type === 'success') {
+        document.getElementById('parse-success-msg').textContent = msg;
+        succEl.classList.add('show');
+      }
+    }
+
+    // ── Review state ──────────────────────────
+    let reviewState = { experiences:[], education:[], certifications:[], skills:[] };
+    const confirmedSet = new Set(); // "experience-5", "education-2", etc.
+
+    function totalReviewItems() {
+      return reviewState.experiences.length + reviewState.education.length + reviewState.certifications.length;
+    }
+    function updateProgress() {
+      const total = totalReviewItems();
+      const done  = confirmedSet.size;
+      const pct   = total > 0 ? Math.round(done / total * 100) : 0;
+      document.getElementById('review-progress-fill').style.width = pct + '%';
+      document.getElementById('review-progress-text').textContent = done + ' of ' + total + ' confirmed';
+      document.getElementById('br-confirmed-count').textContent = done;
+
+      // Enable "Confirm All Remaining" only when there are unconfirmed items
+      const remaining = total - done;
+      const confirmBtn = document.getElementById('btn-confirm-remaining');
+      if (confirmBtn) {
+        confirmBtn.disabled = remaining === 0;
+        confirmBtn.textContent = remaining > 0
+          ? `Confirm All Remaining (${remaining})`
+          : 'All Confirmed ✓';
+      }
+    }
+
+    function markConfirmed(type, id) {
+      const key = type + '-' + id;
+      confirmedSet.add(key);
+      const el = document.getElementById('ri-' + key);
+      if (el) {
+        el.classList.remove('needs-review');
+        el.classList.add('confirmed');
+        const badge = el.querySelector('.ri-badge');
+        if (badge) { badge.className='ri-badge confirmed'; badge.textContent='✓ Confirmed'; }
+        const confirmBtn = el.querySelector('.ri-confirm-btn');
+        if (confirmBtn) confirmBtn.style.display = 'none';
+        const editForm = el.querySelector('.review-edit-form');
+        if (editForm) editForm.classList.remove('open');
+      }
+      updateProgress();
+    }
+
+    // ── Render review items ───────────────────
+    function renderReviewItem(item, type) {
+      const key = type + '-' + item.id;
+      const needsReview = item.needs_review === 1 || item.needs_review === true;
+
+      let title = '', sub = '', desc = '';
+      let editFormHTML = '';
+
+      if (type === 'experience') {
+        title = esc(item.role) || '<em style="color:#b0bdd6">No role</em>';
+        sub   = [esc(item.company), [esc(item.start_date), esc(item.end_date)].filter(Boolean).join(' – ')].filter(Boolean).join(' · ');
+        desc  = esc(item.description || '');
+        editFormHTML = `
+          <div class="ef-grid">
+            <label><span class="ef-label">Job Title</span><input class="ef-input" name="role" value="${esc(item.role)}"></label>
+            <label><span class="ef-label">Company</span><input class="ef-input" name="company" value="${esc(item.company)}"></label>
+            <label><span class="ef-label">Start Date</span><input class="ef-input" name="start_date" value="${esc(item.start_date)}"></label>
+            <label><span class="ef-label">End Date</span><input class="ef-input" name="end_date" value="${esc(item.end_date)}"></label>
+            <label class="ef-full"><span class="ef-label">Description</span><textarea class="ef-input" name="description">${esc(item.description)}</textarea></label>
+          </div>`;
+      } else if (type === 'education') {
+        title = esc(item.degree) || '<em style="color:#b0bdd6">No degree</em>';
+        sub   = [esc(item.institution), esc(item.year), esc(item.grade)].filter(Boolean).join(' · ');
+        editFormHTML = `
+          <div class="ef-grid">
+            <label><span class="ef-label">Degree</span><input class="ef-input" name="degree" value="${esc(item.degree)}"></label>
+            <label><span class="ef-label">Institution</span><input class="ef-input" name="institution" value="${esc(item.institution)}"></label>
+            <label><span class="ef-label">Year</span><input class="ef-input" name="year" value="${esc(item.year)}"></label>
+            <label><span class="ef-label">Grade / GPA</span><input class="ef-input" name="grade" value="${esc(item.grade)}"></label>
+          </div>`;
+      } else if (type === 'certification') {
+        title = esc(item.name) || '<em style="color:#b0bdd6">No name</em>';
+        sub   = [esc(item.issuer), esc(item.date)].filter(Boolean).join(' · ');
+        editFormHTML = `
+          <div class="ef-grid">
+            <label><span class="ef-label">Certification Name</span><input class="ef-input" name="name" value="${esc(item.name)}"></label>
+            <label><span class="ef-label">Issuing Organisation</span><input class="ef-input" name="issuer" value="${esc(item.issuer)}"></label>
+            <label><span class="ef-label">Date</span><input class="ef-input" name="date" value="${esc(item.date)}"></label>
+            <label><span class="ef-label">Credential ID</span><input class="ef-input" name="credential_id" value="${esc(item.credential_id||'')}"></label>
+          </div>`;
+      }
+
+      const badgeClass = needsReview ? 'needs-review' : 'ai-ok';
+      const badgeText  = needsReview ? '🔍 Needs Review' : '✓ AI Confident';
+      const itemClass  = needsReview ? 'needs-review' : '';
+      const formOpen   = needsReview ? 'open' : '';
+
+      return `
+        <div class="review-item ${itemClass}" id="ri-${key}">
+          <div class="review-item-header" onclick="toggleEditForm('${type}',${item.id})">
+            <div class="review-item-body">
+              <div class="review-item-title">${title}</div>
+              ${sub  ? `<div class="review-item-sub">${sub}</div>` : ''}
+              ${desc ? `<div class="review-item-desc">${desc}</div>` : ''}
+            </div>
+            <div class="review-item-controls">
+              <span class="ri-badge ${badgeClass}">${badgeText}</span>
+              <button class="ri-btn ri-confirm-btn confirm" onclick="event.stopPropagation();handleConfirm('${type}',${item.id})">✓ Confirm</button>
+            </div>
+          </div>
+          <div class="review-edit-form ${formOpen}" id="ef-${key}">
+            ${editFormHTML}
+            <div class="ef-actions">
+              <button class="ef-cancel" onclick="toggleEditForm('${type}',${item.id})">Cancel</button>
+              <button class="ef-save" onclick="handleSave('${type}',${item.id})">Save & Confirm</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function toggleEditForm(type, id) {
+      const form = document.getElementById('ef-' + type + '-' + id);
+      if (form) form.classList.toggle('open');
+    }
+
+    async function handleConfirm(type, id) {
+      try {
+        await fetch('/api/cv/confirm', {
+          method:'PATCH', headers:{ Authorization:'Bearer '+token(), 'Content-Type':'application/json' },
+          body: JSON.stringify({ type, id })
+        });
+      } catch {}
+      markConfirmed(type, id);
+    }
+
+    async function handleSave(type, id) {
+      const form = document.getElementById('ef-' + type + '-' + id);
+      const fields = {};
+      form.querySelectorAll('.ef-input').forEach(inp => { fields[inp.name] = inp.value.trim(); });
+      try {
+        const resp = await fetch('/api/cv/item', {
+          method:'PATCH', headers:{ Authorization:'Bearer '+token(), 'Content-Type':'application/json' },
+          body: JSON.stringify({ type, id, fields })
+        });
+        if (!resp.ok) { alert('Failed to save. Please try again.'); return; }
+        // Update displayed title/sub with new values
+        const item = document.getElementById('ri-' + type + '-' + id);
+        if (item) {
+          const titleEl = item.querySelector('.review-item-title');
+          const subEl   = item.querySelector('.review-item-sub');
+          if (type === 'experience') {
+            if (titleEl) titleEl.textContent = fields.role || '';
+            if (subEl)   subEl.textContent   = [fields.company, [fields.start_date, fields.end_date].filter(Boolean).join(' – ')].filter(Boolean).join(' · ');
+          } else if (type === 'education') {
+            if (titleEl) titleEl.textContent = fields.degree || '';
+            if (subEl)   subEl.textContent   = [fields.institution, fields.year, fields.grade].filter(Boolean).join(' · ');
+          } else if (type === 'certification') {
+            if (titleEl) titleEl.textContent = fields.name || '';
+            if (subEl)   subEl.textContent   = [fields.issuer, fields.date].filter(Boolean).join(' · ');
+          }
+        }
+      } catch {}
+      markConfirmed(type, id);
+    }
+
+    async function confirmAllItems() {
+      const all = [
+        ...reviewState.experiences.map(e => ({type:'experience', id:e.id})),
+        ...reviewState.education.map(e => ({type:'education', id:e.id})),
+        ...reviewState.certifications.map(c => ({type:'certification', id:c.id})),
+      ].filter(x => !confirmedSet.has(x.type+'-'+x.id));
+
+      await Promise.all(all.map(x =>
+        fetch('/api/cv/confirm', {
+          method:'PATCH', headers:{ Authorization:'Bearer '+token(), 'Content-Type':'application/json' },
+          body: JSON.stringify({ type:x.type, id:x.id })
+        }).catch(()=>{})
+      ));
+      all.forEach(x => markConfirmed(x.type, x.id));
+    }
+
+    function onBuildResume() {
+      const total = totalReviewItems();
+      const done  = confirmedSet.size;
+      if (done < total) {
+        return confirm(`${total - done} item(s) not yet confirmed. Proceed to build resume anyway?`);
+      }
+      return true;
+    }
+
+    // ── Skills editor ─────────────────────────
+    function renderSkillsEditor(skills) {
+      reviewState.skills = [...skills];
+      const container = document.getElementById('skills-editor');
+      container.innerHTML = reviewState.skills.map((s, i) => `
+        <span class="se-chip">
+          ${esc(s)}
+          <button onclick="removeSkill(${i})" title="Remove">✕</button>
+        </span>`).join('');
+    }
+
+    function removeSkill(i) {
+      reviewState.skills.splice(i, 1);
+      renderSkillsEditor(reviewState.skills);
+      saveSkills();
+    }
+
+    function addSkillChip() {
+      const input = document.getElementById('se-add-input');
+      const val = input.value.trim();
+      if (!val) return;
+      reviewState.skills.push(val);
+      input.value = '';
+      renderSkillsEditor(reviewState.skills);
+      saveSkills();
+    }
+
+    document.getElementById('se-add-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); addSkillChip(); }
+    });
+
+    async function saveSkills() {
+      try {
+        await fetch('/api/cv/skills', {
+          method:'PATCH', headers:{ Authorization:'Bearer '+token(), 'Content-Type':'application/json' },
+          body: JSON.stringify({ skills: reviewState.skills })
+        });
+      } catch {}
+    }
+
+    // ── Render full review ────────────────────
+    function renderReview(data) {
+      reviewState = {
+        experiences:    data.experiences    || [],
+        education:      data.education      || [],
+        certifications: data.certifications || [],
+        skills:         data.skills         || [],
+      };
+      confirmedSet.clear();
+
+      // Pre-mark already-confirmed items (needs_review=0 on existing data)
+      reviewState.experiences.forEach(e => {
+        if (!e.needs_review) confirmedSet.add('experience-' + e.id);
+      });
+      reviewState.education.forEach(e => {
+        if (!e.needs_review) confirmedSet.add('education-' + e.id);
+      });
+      reviewState.certifications.forEach(c => {
+        if (!c.needs_review) confirmedSet.add('certification-' + c.id);
+      });
+
+      // Render groups
+      const rgExp  = document.getElementById('rg-exp');
+      const rgEdu  = document.getElementById('rg-edu');
+      const rgCert = document.getElementById('rg-cert');
+      const rgSk   = document.getElementById('rg-skills');
+
+      if (reviewState.experiences.length) {
+        document.getElementById('review-exp-list').innerHTML = reviewState.experiences.map(e => renderReviewItem(e,'experience')).join('');
+        rgExp.style.display = '';
+      } else { rgExp.style.display = 'none'; }
+
+      if (reviewState.education.length) {
+        document.getElementById('review-edu-list').innerHTML = reviewState.education.map(e => renderReviewItem(e,'education')).join('');
+        rgEdu.style.display = '';
+      } else { rgEdu.style.display = 'none'; }
+
+      if (reviewState.certifications.length) {
+        document.getElementById('review-cert-list').innerHTML = reviewState.certifications.map(c => renderReviewItem(c,'certification')).join('');
+        rgCert.style.display = '';
+      } else { rgCert.style.display = 'none'; }
+
+      if (reviewState.skills.length) {
+        renderSkillsEditor(reviewState.skills);
+        rgSk.style.display = '';
+      } else { rgSk.style.display = 'none'; }
+
+      // Re-apply confirmed state to already-confirmed items
+      confirmedSet.forEach(key => {
+        const [type, id] = key.split('-');
+        const el = document.getElementById('ri-' + key);
+        if (el) {
+          el.classList.add('confirmed');
+          el.classList.remove('needs-review');
+          const badge = el.querySelector('.ri-badge');
+          if (badge) { badge.className='ri-badge confirmed'; badge.textContent='✓ Confirmed'; }
+          const confirmBtn = el.querySelector('.ri-confirm-btn');
+          if (confirmBtn) confirmBtn.style.display = 'none';
+        }
+      });
+
+      updateProgress();
+    }
+
+    // ── Submit CV ─────────────────────────────
+    const submitBtn = document.getElementById('submitCV');
+    submitBtn.addEventListener('click', async () => {
+      const activeTab = document.querySelector('.upload-tab.active').dataset.tab;
+      submitBtn.classList.add('loading');
+      submitBtn.disabled = true;
+      showAlert('clear', '');
+
+      try {
+        let resp;
+        if (activeTab === 'file') {
+          if (!chosenFile) { showAlert('error', 'Please choose a file first.'); return; }
+          const fd = new FormData();
+          fd.append('cv', chosenFile);
+          resp = await fetch('/api/cv/upload', {
+            method:'POST', headers:{ Authorization:'Bearer '+token() }, body:fd
+          });
+        } else {
+          const text = document.getElementById('pasteArea').value.trim();
+          if (!text) { showAlert('error', 'Please paste some CV text first.'); return; }
+          resp = await fetch('/api/cv/text', {
+            method:'POST',
+            headers:{ Authorization:'Bearer '+token(), 'Content-Type':'application/json' },
+            body: JSON.stringify({ text })
+          });
+        }
+
+        const data = await resp.json();
+        if (!resp.ok) { showAlert('error', data.error || 'Failed to parse CV.'); return; }
+
+        showAlert('success', `Extracted ${data.summary.experiences} experiences, ${data.summary.education} education entries, ${data.summary.certifications} certifications and ${data.summary.skills} skills.`);
+
+        // Show results + review
+        document.getElementById('cv-results').style.display = 'block';
+        document.getElementById('results-source').textContent = 'Source: ' + (activeTab === 'file' ? chosenFile.name : 'Pasted text');
+        document.getElementById('summary-pills').innerHTML = [
+          { icon:'💼', label:'Experiences',    n: data.summary.experiences },
+          { icon:'🎓', label:'Education',      n: data.summary.education },
+          { icon:'🏅', label:'Certifications', n: data.summary.certifications },
+          { icon:'⚡', label:'Skills',         n: data.summary.skills },
+        ].map(p => `<div class="summary-pill">${p.icon} <strong>${p.n}</strong> ${p.label}</div>`).join('');
+
+        renderReview(data.parsed);
+        document.getElementById('explore-future-pill').style.display = '';
+        setTimeout(() => document.getElementById('cv-results').scrollIntoView({ behavior:'smooth', block:'start' }), 100);
+
+      } catch (err) { showAlert('error', 'Could not reach the server. Please try again.'); }
+      finally { submitBtn.classList.remove('loading'); submitBtn.disabled = false; }
+    });
+
+    // ── Load existing CV data on page load ────
+    async function loadExistingCVData() {
+      const t = token();
+      if (!t) return;
+      try {
+        const resp = await fetch('/api/cv/data', { headers:{ Authorization:'Bearer '+t } });
+        const data = await resp.json();
+        if (!resp.ok) return;
+        const hasData = data.experiences.length || data.education.length ||
+                        data.certifications.length || data.skills.length;
+        if (hasData) {
+          document.getElementById('cv-results').style.display = 'block';
+          document.getElementById('results-source').textContent = 'Source: Previously uploaded';
+          document.getElementById('summary-pills').innerHTML = [
+            { icon:'💼', label:'Experiences',    n: data.experiences.length },
+            { icon:'🎓', label:'Education',      n: data.education.length },
+            { icon:'🏅', label:'Certifications', n: data.certifications.length },
+            { icon:'⚡', label:'Skills',         n: data.skills.length },
+          ].map(p => `<div class="summary-pill">${p.icon} <strong>${p.n}</strong> ${p.label}</div>`).join('');
+          renderReview(data);
+          document.getElementById('explore-future-pill').style.display = '';
+          showAlert('success', 'Showing your previously uploaded CV data.');
+        }
+      } catch {}
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = (() => { try { return JSON.parse(localStorage.getItem('sb_user')); } catch { return null; } })();
+      if (user) {
+        const initials = user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+        document.getElementById('wb-avatar').textContent = initials;
+        document.getElementById('wb-name').textContent   = user.name;
+        document.getElementById('welcome-banner').style.display = 'flex';
+      }
+      loadExistingCVData();
+    });
+  </script>
+</body>
+</html>
