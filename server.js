@@ -1,17 +1,18 @@
 'use strict';
 require('dotenv').config();
 
-const express   = require('express');
-const cors      = require('cors');
-const bcrypt    = require('bcryptjs');
-const jwt       = require('jsonwebtoken');
-const path      = require('path');
-const crypto    = require('crypto');
-const fs        = require('fs');
-const multer    = require('multer');
-const pdfParse  = require('pdf-parse');
-const mammoth   = require('mammoth');
-const Database  = require('better-sqlite3');
+const express    = require('express');
+const cors       = require('cors');
+const bcrypt     = require('bcryptjs');
+const jwt        = require('jsonwebtoken');
+const path       = require('path');
+const crypto     = require('crypto');
+const fs         = require('fs');
+const multer     = require('multer');
+const pdfParse   = require('pdf-parse');
+const mammoth    = require('mammoth');
+const Database   = require('better-sqlite3');
+const Anthropic  = require('@anthropic-ai/sdk');
 
 // ── Config ────────────────────────────────────
 const PORT        = process.env.PORT || 4000;
@@ -27,52 +28,15 @@ if (process.env.NODE_ENV === 'production' && JWT_SECRET === DEV_JWT) {
 const UPLOAD_DIR  = path.join(__dirname, 'data', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
-// ── Ollama config ─────────────────────────────
-const OLLAMA_URL   = process.env.OLLAMA_URL   || 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:1.5b';
+// ── Anthropic config ──────────────────────────
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || '';
+const ANTHROPIC_MODEL   = process.env.ANTHROPIC_MODEL   || 'claude-haiku-4-5-20251001';
 
-// ── Ollama auto-start ─────────────────────────
-// Spawns `ollama serve` if the daemon is not already running.
-// Re-checks every 30 s so the server self-heals if Ollama crashes.
-const { spawn } = require('child_process');
-let _ollamaProc = null;
-
-async function isOllamaUp() {
-  try {
-    const r = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(2000) });
-    return r.ok;
-  } catch { return false; }
+if (!ANTHROPIC_API_KEY) {
+  console.warn('  [anthropic] ANTHROPIC_API_KEY not set — AI features will be unavailable');
 }
 
-async function ensureOllama() {
-  if (await isOllamaUp()) return;                              // already running externally
-  if (_ollamaProc && _ollamaProc.exitCode === null) return;  // our process is still alive
-
-  console.log('  [ollama] not detected — spawning `ollama serve`…');
-  _ollamaProc = spawn('ollama', ['serve'], {
-    detached: false,
-    stdio: ['ignore', 'ignore', 'ignore'],
-  });
-  _ollamaProc.on('error', err => {
-    if (err.code === 'ENOENT') {
-      console.error('  [ollama] `ollama` binary not found. Install from https://ollama.com');
-    }
-  });
-  _ollamaProc.on('exit', code => {
-    console.log(`  [ollama] process exited (code ${code}) — will retry`);
-    _ollamaProc = null;
-  });
-
-  // Wait up to 15 s for it to become ready
-  for (let i = 0; i < 15; i++) {
-    await new Promise(r => setTimeout(r, 1000));
-    if (await isOllamaUp()) {
-      console.log('  [ollama] ready ✓');
-      return;
-    }
-  }
-  console.warn('  [ollama] still not responding after 15 s — AI features may be unavailable');
-}
+const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
 // ── External API keys ─────────────────────────
 const SERPAPI_KEY = process.env.SERPAPI_KEY || '';  // serpapi.com — 100 free searches/month
@@ -365,23 +329,23 @@ function extractDescription(entryLines) {
   return body.filter(Boolean).join('\n');
 }
 
-// ── LLM helper — one focused call ────────────
+// ── LLM helper — Anthropic Claude ────────────
+// Single focused call that returns parsed JSON.
+// Uses claude-haiku for speed/cost; model is configurable via ANTHROPIC_MODEL env var.
 async function ollamaJSON(prompt) {
-  const resp = await fetch(`${OLLAMA_URL}/api/generate`, {
-    method : 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body   : JSON.stringify({
-      model  : OLLAMA_MODEL,
-      prompt,
-      stream : false,
-      options: { temperature: 0.1, num_predict: 768 },
-    }),
+  if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured');
+
+  const message = await anthropic.messages.create({
+    model      : ANTHROPIC_MODEL,
+    max_tokens : 1024,
+    temperature: 0.1,
+    messages   : [{ role: 'user', content: prompt }],
   });
-  if (!resp.ok) throw new Error(`Ollama error: ${resp.status}`);
-  const data = await resp.json();
-  const raw  = (data.response || '').trim()
+
+  const raw = (message.content[0]?.text || '').trim()
     .replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-  // Match outermost structure first (avoids matching inner arrays inside objects)
+
+  // Parse outermost JSON structure (array or object)
   const firstChar = raw.trimStart()[0];
   if (firstChar === '[') {
     const arrMatch = raw.match(/\[[\s\S]*\]/);
@@ -391,7 +355,7 @@ async function ollamaJSON(prompt) {
   if (objMatch) return JSON.parse(objMatch[0]);
   const arrMatch = raw.match(/\[[\s\S]*\]/);
   if (arrMatch) return JSON.parse(arrMatch[0]);
-  throw new Error('No JSON in Ollama response');
+  throw new Error('No JSON in Claude response');
 }
 
 // ── Regex fallback: parse header line ────────
@@ -1116,8 +1080,8 @@ app.post('/api/cv/upload', requireAuth, upload.single('cv'), async (req, res) =>
     });
   } catch (err) {
     console.error('CV parse error:', err);
-    const msg = err.message?.includes('Ollama') || err.message?.includes('fetch')
-      ? `AI parsing unavailable — is Ollama running? (${OLLAMA_MODEL})`
+    const msg = err.message?.includes('fetch') || err.message?.includes('connect')
+      ? 'AI parsing unavailable. Check your ANTHROPIC_API_KEY configuration.'
       : 'Failed to parse CV. Please try again.';
     res.status(500).json({ error: msg });
   }
@@ -1148,8 +1112,8 @@ app.post('/api/cv/text', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('CV text parse error:', err);
-    const msg = err.message?.includes('Ollama') || err.message?.includes('fetch')
-      ? `AI parsing unavailable — is Ollama running? (${OLLAMA_MODEL})`
+    const msg = err.message?.includes('fetch') || err.message?.includes('connect')
+      ? 'AI parsing unavailable. Check your ANTHROPIC_API_KEY configuration.'
       : 'Failed to parse CV. Please try again.';
     res.status(500).json({ error: msg });
   }
@@ -1276,7 +1240,7 @@ app.post('/api/future/pathways', requireAuth, async (req, res) => {
     const isOperations   = domainIs(/operations manager|ops manager|general manager|facilities|supply chain|logistics|warehouse|fleet|procurement/) && !isHospitality;
     const isAutomation   = domainIs(/automat|rpa|uipath|process.automat|robotic/);
     const isData         = domainIs(/\bdata\b|analyst|scientist|\bsql\b|\bbi\b|tableau|power.bi|machine learning/);
-    const isFinance      = domainIs(/financ|banking|accountant|accounting|investment|wealth|treasury|audit|cfo|fund|equity|credit/);
+    const isFinance      = domainIs(/financ|banking|accountant|accounting|investment|wealth|treasury|\baudit\b|\bcfo\b|\bfund\b|\bequity\b|\bcredit\b/);
     const isMarketing    = domainIs(/marketing|brand|campaign|growth.hack|seo|sem|social.media|content.strat|demand.gen|crm/);
     const isHR           = domainIs(/human.resource|\bhr\b|talent.acqui|recruitment|recruiter|learning.dev|l&d|people.ops|hris/);
     const isSales        = domainIs(/\bsales\b|account.exec|business.dev|biz.dev|revenue.growth|client.acqui|b2b.sales/);
@@ -1399,7 +1363,7 @@ Person: ${currentRole}. Background: ${expSummary.slice(0, 100)}. Skills: ${skill
     if (allFailed) {
       const err0 = results[0].reason;
       const msg  = String(err0?.message || '').includes('fetch') || String(err0?.message || '').includes('connect')
-        ? 'AI service unavailable — run `ollama serve` in your terminal.'
+        ? 'AI service unavailable. Check your ANTHROPIC_API_KEY configuration.'
         : 'AI failed to generate career pathways. Try again.';
       return res.status(503).json({ error: msg });
     }
@@ -1431,8 +1395,8 @@ Person: ${currentRole}. Background: ${expSummary.slice(0, 100)}. Skills: ${skill
     res.json({ pathways: normalised });
   } catch (err) {
     console.error('Pathways error:', err);
-    const msg = err.message?.includes('fetch') || err.message?.includes('Ollama')
-      ? 'AI service unavailable — is Ollama running?'
+    const msg = err.message?.includes('fetch') || err.message?.includes('connect')
+      ? 'AI service unavailable. Check your ANTHROPIC_API_KEY configuration.'
       : 'Failed to generate career pathways.';
     res.status(503).json({ error: msg });
   }
@@ -1630,10 +1594,14 @@ app.get('/api/future/courses', requireAuth, async (req, res) => {
 
 // ── Health ────────────────────────────────────
 app.get('/api/health', async (_, res) => {
-  const count  = db.prepare('SELECT COUNT(*) as n FROM users').get();
-  const ollama = await isOllamaUp();
-  if (!ollama) ensureOllama().catch(() => {}); // kick restart if needed
-  res.json({ status: 'ok', users: count.n, ollama, model: OLLAMA_MODEL, ts: new Date().toISOString() });
+  const count = db.prepare('SELECT COUNT(*) as n FROM users').get();
+  res.json({
+    status : 'ok',
+    users  : count.n,
+    ai     : !!ANTHROPIC_API_KEY,
+    model  : ANTHROPIC_MODEL,
+    ts     : new Date().toISOString(),
+  });
 });
 
 // ── Fallback ──────────────────────────────────
@@ -1641,12 +1609,9 @@ app.get(/^(?!\/api).*/, (_req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(PORT, async () => {
-  console.log(`\n  Skillbridge server  →  http://localhost:${PORT}`);
-  console.log(`  DB                  →  ${path.join(__dirname, 'data', 'skillbridge.db')}`);
-  console.log(`  Model               →  ${OLLAMA_MODEL}\n`);
-
-  // Start Ollama immediately, then keep a watchdog running every 30 s
-  await ensureOllama();
-  setInterval(ensureOllama, 30_000);
+app.listen(PORT, () => {
+  console.log(`\n  TrustMatch server  →  http://localhost:${PORT}`);
+  console.log(`  DB                 →  ${path.join(__dirname, 'data', 'skillbridge.db')}`);
+  console.log(`  AI model           →  ${ANTHROPIC_MODEL}`);
+  console.log(`  Anthropic API      →  ${ANTHROPIC_API_KEY ? 'configured ✓' : 'NOT SET — AI features disabled'}\n`);
 });

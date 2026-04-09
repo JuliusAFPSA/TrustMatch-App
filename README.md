@@ -1,6 +1,6 @@
 # TrustMatch App
 
-An AI-powered career development platform that parses CVs, verifies work history, generates personalised career pathways, and builds tailored resumes — all powered by a local LLM running on-device.
+An AI-powered career development platform that parses CVs, verifies work history, generates personalised career pathways, and builds tailored resumes — all powered by the Anthropic Claude API.
 
 ---
 
@@ -15,7 +15,6 @@ An AI-powered career development platform that parses CVs, verifies work history
 - **Live Job Search** — Pulls real job listings from Google Jobs via SerpAPI
 - **Resume Builder** — Live-preview resume editor that correctly handles PDF-extracted bullet points
 - **JWT Authentication** — Secure login/register with bcrypt password hashing (12 salt rounds)
-- **Ollama Auto-Start** — Spawns `ollama serve` automatically on startup with a 30-second watchdog
 
 ---
 
@@ -31,7 +30,7 @@ An AI-powered career development platform that parses CVs, verifies work history
 | File Uploads | Multer |
 | PDF Parsing | `pdf-parse` |
 | DOCX Parsing | `mammoth` |
-| LLM | Ollama (`qwen2.5:1.5b`) — runs locally |
+| AI / LLM | Anthropic Claude API (`@anthropic-ai/sdk`) |
 | Job/Course Search | SerpAPI (Google Jobs + Coursera/Udemy) |
 
 ### Frontend
@@ -45,9 +44,10 @@ An AI-powered career development platform that parses CVs, verifies work history
 ### AI / LLM
 | Component | Detail |
 |---|---|
-| Model | `qwen2.5:1.5b` (default) or `qwen2.5-coder:7b` |
-| Inference | Ollama REST API (`/api/generate`) |
-| Format | JSON-mode prompts with fallback regex parsing |
+| Provider | Anthropic Claude API |
+| Default model | `claude-haiku-4-5-20251001` (fast, cost-efficient) |
+| Alternative model | `claude-sonnet-4-6` (higher quality) |
+| Format | JSON-mode prompts with code-fence stripping and fallback regex parsing |
 | Skill extraction | Two-pass: regex (certs, parentheticals, connectors) + LLM with anti-hallucination substring check |
 | Pathway generation | 4 parallel `Promise.allSettled` calls — one per pathway type |
 | Gap analysis | Single focused LLM call with structured JSON schema |
@@ -104,7 +104,7 @@ The original approach used regex splitting on commas/semicolons which produced g
 - Parenthetical items: `(Blue Prism)`, `(PMP)` — filtered for prepositions, degree abbreviations, institution codes
 - Connector patterns: `"deploying X"`, `"implementing X"` → ProperCase tool names only
 
-**Pass 2 — LLM:**
+**Pass 2 — LLM (Claude Haiku):**
 - Feeds only skill-dense lines (certs + lines containing known acronyms / ProperCase products)
 - Anti-hallucination filter: each LLM result must appear verbatim in the source text
 - Post-filters: max 4 words, no digits, no achievement-suffix phrases (`"efficiency"`, `"rollout"`, etc.)
@@ -115,7 +115,7 @@ The original approach used regex splitting on commas/semicolons which produced g
 2. Selects the matching domain's pathway templates and salary bands
 3. Fires 4 parallel LLM calls simultaneously (`Promise.allSettled`) — one per pathway type
 4. Each call returns `{title, description, demand, salaryRange, timeframe, keySkills[]}`
-5. Falls back to a 503 with a clear error if all 4 calls fail (e.g. Ollama is down)
+5. Falls back to a 503 with a clear error if all 4 calls fail
 
 ### Gap Analysis
 
@@ -136,8 +136,8 @@ Given a target role and the user's current skills, the LLM returns:
 
 ### Prerequisites
 - Node.js v20+
-- [Ollama](https://ollama.com) installed and accessible in PATH
-- SerpAPI key (100 free searches/month at [serpapi.com](https://serpapi.com))
+- Anthropic API key (get one at [console.anthropic.com](https://console.anthropic.com))
+- SerpAPI key — optional, for job and course search (100 free searches/month at [serpapi.com](https://serpapi.com))
 
 ### Install
 
@@ -152,17 +152,19 @@ npm install
 Create a `.env` file in the project root:
 
 ```env
-PORT=4000
-JWT_SECRET=your-random-secret-here
+# Required — powers all AI features
+ANTHROPIC_API_KEY=sk-ant-...your-key-here...
+
+# Optional — default is claude-haiku-4-5-20251001 (fast/cheap)
+# Use claude-sonnet-4-6 for higher-quality outputs
+ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+
+# Optional — enables live job search and course recommendations
 SERPAPI_KEY=your-serpapi-key
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=qwen2.5:1.5b
-```
 
-### Pull the LLM model
-
-```bash
-ollama pull qwen2.5:1.5b
+# Optional defaults
+PORT=4000
+JWT_SECRET=change-this-in-production
 ```
 
 ### Run
@@ -172,8 +174,6 @@ npm start
 ```
 
 Open [http://localhost:4000](http://localhost:4000)
-
-The server auto-starts Ollama if it isn't already running.
 
 ---
 
@@ -196,7 +196,7 @@ The server auto-starts Ollama if it isn't already running.
 | `POST` | `/api/future/gap` | JWT | Run gap analysis for a role |
 | `GET` | `/api/future/courses` | JWT | Search courses by skills |
 | `GET` | `/api/future/jobs` | JWT | Search live job listings |
-| `GET` | `/api/health` | — | Server + Ollama health check |
+| `GET` | `/api/health` | — | Server health check |
 
 ---
 
@@ -204,10 +204,10 @@ The server auto-starts Ollama if it isn't already running.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
+| `ANTHROPIC_API_KEY` | **Yes** | — | Anthropic API key — powers all AI features |
+| `ANTHROPIC_MODEL` | No | `claude-haiku-4-5-20251001` | Claude model to use. Use `claude-sonnet-4-6` for higher quality |
 | `JWT_SECRET` | Yes (prod) | dev fallback | Secret for signing JWTs — app exits if default used in production |
 | `SERPAPI_KEY` | For jobs/courses | — | SerpAPI key for Google Jobs + course search |
-| `OLLAMA_URL` | No | `http://localhost:11434` | Ollama endpoint |
-| `OLLAMA_MODEL` | No | `qwen2.5:1.5b` | Model name to use for all LLM calls |
 | `PORT` | No | `4000` | HTTP port |
 | `NODE_ENV` | No | — | Set to `production` to enforce `JWT_SECRET` check |
 
@@ -217,10 +217,10 @@ The server auto-starts Ollama if it isn't already running.
 
 Key steps for a production VPS deployment:
 
-1. Provision a server with **4 GB RAM** minimum (Hetzner CX22 ~€4/mo or DigitalOcean $24/mo)
-2. Install Node.js 20, Ollama, nginx, PM2
+1. Provision a server with **2 GB RAM** minimum (Hetzner CX22 ~€4/mo or DigitalOcean $12/mo)
+2. Install Node.js 20, nginx, PM2
 3. Clone repo, run `npm install --production`
-4. Create `.env` with a strong random `JWT_SECRET` and `NODE_ENV=production`
+4. Create `.env` with a strong random `JWT_SECRET`, `ANTHROPIC_API_KEY`, and `NODE_ENV=production`
 5. `pm2 start server.js --name trustmatch && pm2 save`
 6. Configure nginx as reverse proxy on ports 80/443
 7. Add HTTPS: `certbot --nginx -d yourdomain.com`
