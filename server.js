@@ -41,6 +41,15 @@ const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 // ── External API keys ─────────────────────────
 const SERPAPI_KEY = process.env.SERPAPI_KEY || '';  // serpapi.com — 100 free searches/month
 
+// ── App-level limits ──────────────────────────
+// CV text pasted directly must not exceed this to prevent LLM token overruns
+const MAX_CV_TEXT_LENGTH = Number(process.env.MAX_CV_TEXT_LENGTH) || 50_000;
+
+// ── CORS ──────────────────────────────────────
+// In development, defaults to '*' (all origins).
+// In production, set CORS_ORIGIN=https://yourdomain.com in .env to lock it down.
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+
 // ── Database ──────────────────────────────────
 const db = new Database(path.join(__dirname, 'data', 'skillbridge.db'));
 db.pragma('journal_mode = WAL');
@@ -329,27 +338,46 @@ function extractDescription(entryLines) {
   return body.filter(Boolean).join('\n');
 }
 
-// ── LLM helper — Anthropic Claude ────────────
-// Single focused call that returns parsed JSON.
-// Uses claude-haiku for speed/cost; model is configurable via ANTHROPIC_MODEL env var.
-async function ollamaJSON(prompt) {
+// ── LLM helper — Anthropic Claude ─────────────────────────────────────────
+// Sends a single user message and returns parsed JSON.
+//
+// Options:
+//   system    {string}  — system prompt (role + output format instructions)
+//   maxTokens {number}  — token budget for the response (default 1024)
+//   prefill   {string}  — assistant turn prefix, e.g. '{' or '['.
+//                         Claude continues from exactly this character, which
+//                         forces the correct JSON root type and removes the
+//                         need for "Return ONLY JSON" boilerplate in prompts.
+async function callClaude(prompt, { system, maxTokens = 1024, prefill = null } = {}) {
   if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY not configured');
 
-  const message = await anthropic.messages.create({
+  const messages = [{ role: 'user', content: prompt }];
+  // Prefilling: inject the start of the assistant's reply so Claude continues
+  // directly in JSON rather than adding any preamble.
+  if (prefill) messages.push({ role: 'assistant', content: prefill });
+
+  const params = {
     model      : ANTHROPIC_MODEL,
-    max_tokens : 1024,
+    max_tokens : maxTokens,
     temperature: 0.1,
-    messages   : [{ role: 'user', content: prompt }],
-  });
+    messages,
+  };
+  if (system) params.system = system;
 
-  const raw = (message.content[0]?.text || '').trim()
-    .replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  const message = await anthropic.messages.create(params);
 
-  // Parse outermost JSON structure (array or object)
+  // Reconstruct full text: Claude's reply continues from the prefill
+  const responseText = (message.content[0]?.text || '').trim();
+  const full = prefill ? prefill + responseText : responseText;
+
+  // Strip markdown code fences that some models add
+  const raw = full.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+
+  // Extract the outermost JSON structure
   const firstChar = raw.trimStart()[0];
   if (firstChar === '[') {
-    const arrMatch = raw.match(/\[[\s\S]*\]/);
-    if (arrMatch) return JSON.parse(arrMatch[0]);
+    const m = raw.match(/\[[\s\S]*\]/);
+    if (m) return JSON.parse(m[0]);
   }
   const objMatch = raw.match(/\{[\s\S]*\}/);
   if (objMatch) return JSON.parse(objMatch[0]);
@@ -461,13 +489,15 @@ async function parseExpEntry(entryLines) {
   // Never overwrites a value already found by regex.
   if (!fields.role || !fields.company) {
     const headerText = nonBullet.slice(0, 3).join('\n');
-    const prompt =
-`Extract job title, company, start date, end date from this CV job header.
-Return ONLY JSON: {"role":"","company":"","start_date":"","end_date":""}
-
-${headerText}`;
     try {
-      const llm = await ollamaJSON(prompt);
+      const llm = await callClaude(
+        `Parse this CV job entry header into structured fields.\n\n${headerText}`,
+        {
+          system  : 'You extract structured job data from CV text. Output valid JSON only: {"role":"","company":"","start_date":"","end_date":""}',
+          prefill : '{',
+          maxTokens: 256,
+        }
+      );
       if (!fields.role    && llm.role)       fields.role       = String(llm.role).trim();
       if (!fields.company && llm.company)    fields.company    = String(llm.company).trim();
       if (!fields.start_date && llm.start_date) fields.start_date = String(llm.start_date).trim();
@@ -547,35 +577,19 @@ function parseCertFallback(lines) {
   }).filter(c => c && c.name && c.name.length > 2);
 }
 
-function parseSkillsFallback(lines) {
-  const skills = [];
-  for (const line of lines) {
-    line.split(/[,;|•·\t]+/).forEach(s => {
-      const t = s.trim().replace(BULLET_RE, '');
-      if (t.length > 1 && t.length < 50) skills.push(t);
-    });
-  }
-  return [...new Set(skills)];
-}
-
 // ── Focused LLM extraction for education ─────
 async function parseEducation(eduLines) {
   if (!eduLines.length) return [];
   const text = eduLines.join('\n');
-  const prompt =
-`Extract ALL education entries from the text below.
-Return ONLY a JSON array — no markdown, no explanation:
-[{"degree":"","institution":"","year":"","grade":""}]
-
-Rules:
-- degree: full degree name (e.g. "BSc, Business Information Systems")
-- institution: university/school name only (e.g. "Murdoch University")
-- year: graduation year if present, else ""
-- grade: GPA/honours/distinction if present, else ""
-
-${text}`;
   try {
-    const r = await ollamaJSON(prompt);
+    const r = await callClaude(
+      `Extract every education entry from this text.\n\nFields per entry:\n- degree: full degree name (e.g. "BSc Computer Science")\n- institution: university or school name only\n- year: graduation year or ""\n- grade: GPA / honours / distinction or ""\n\n${text}`,
+      {
+        system   : 'You extract education history from CV text. Output a valid JSON array only: [{"degree":"","institution":"","year":"","grade":""}]',
+        prefill  : '[',
+        maxTokens: 512,
+      }
+    );
     const arr = Array.isArray(r) ? r : (r.education || []);
     if (arr.length) return arr;
   } catch {}
@@ -589,21 +603,16 @@ async function parseCertifications(certLines) {
   const text = cleaned.join('\n');
   const expectedCount = cleaned.length;
 
-  const prompt =
-`Extract ALL ${expectedCount} certifications listed below. Return every single one.
-Return ONLY a JSON array — no markdown, no explanation:
-[{"name":"","issuer":"","date":"","credential_id":""}]
-
-Rules:
-- name: full certification name (include acronym if given, e.g. "Project Management Professional (PMP)")
-- issuer: issuing organization if stated (e.g. "PMI", "Google", "Microsoft"), else ""
-- date: year or date if present, else ""
-- credential_id: credential ID if present, else ""
-
-${text}`;
   let llmResult = [];
   try {
-    const r = await ollamaJSON(prompt);
+    const r = await callClaude(
+      `Extract all ${expectedCount} certifications from this text. Return every single one.\n\nFields:\n- name: full certification name with acronym (e.g. "Project Management Professional (PMP)")\n- issuer: issuing organization (e.g. "PMI", "Google") or ""\n- date: year or date or ""\n- credential_id: credential ID or ""\n\n${text}`,
+      {
+        system   : 'You extract certification data from CV text. Output a valid JSON array only: [{"name":"","issuer":"","date":"","credential_id":""}]',
+        prefill  : '[',
+        maxTokens: 768,
+      }
+    );
     llmResult = Array.isArray(r) ? r : (r.certifications || []);
   } catch {}
 
@@ -748,15 +757,13 @@ async function parseSkillsFromCV(rawText, skillLines) {
 
   let llmSkills = [];
   try {
-    const r = await ollamaJSON(
-`List every tool, software, platform, methodology and certification in this text.
-Each item: 1-4 words, no numbers, no sentences, no soft skills.
-Good examples: "UiPath", "Blue Prism", "PMP", "RPA", "Power Automate", "Azure", "Agile"
-
-Text:
-${llmInput}
-
-JSON array only:`
+    const r = await callClaude(
+      `List every tool, software, platform, methodology and certification named in this text.\n\nRules: 1-4 words per item, no numbers, no soft skills like "communication".\nGood: ["Python", "Docker", "AWS", "PMP", "Power Automate", "Agile"]\nBad: ["Strong leadership", "Led teams", "2+ years"]\n\n${llmInput}`,
+      {
+        system   : 'You extract technical skills and certifications from text. Output a JSON array of strings only.',
+        prefill  : '[',
+        maxTokens: 512,
+      }
     );
     const raw = Array.isArray(r) ? r : (Array.isArray(r?.skills) ? r.skills : []);
     const STOP = /^(and|or|the|a|an|in|of|for|to|with|by|at|from|on|as|is|be|are|was|were|that|this|these|those|including|also|all|both|each|various|within|through|into|upon)$/i;
@@ -849,17 +856,15 @@ async function parsePersonalInfo(headerLines, rawText) {
   // ── LLM supplements only still-empty title / summary ─────────
   if (!info.title || !info.summary) {
     const sample = headerLines.slice(0, 10).join('\n');
-    const prompt =
-`From this CV header, extract the job title/headline and professional summary.
-Return ONLY JSON — no markdown:
-{"title":"","summary":""}
-
-- title: professional headline (e.g. "Senior Data Analyst | Business Intelligence")
-- summary: professional summary paragraph if present, else ""
-
-${sample}`;
     try {
-      const llm = await ollamaJSON(prompt);
+      const llm = await callClaude(
+        `Extract the professional title/headline and summary from this CV header.\n\n- title: e.g. "Senior Software Engineer | Cloud & DevOps"\n- summary: professional summary paragraph if present, else ""\n\n${sample}`,
+        {
+          system   : 'You extract professional details from CV headers. Output valid JSON only: {"title":"","summary":""}',
+          prefill  : '{',
+          maxTokens: 512,
+        }
+      );
       if (!info.title   && llm.title)   info.title   = String(llm.title).trim();
       if (!info.summary && llm.summary) info.summary = String(llm.summary).trim();
     } catch {}
@@ -983,7 +988,7 @@ function storedCVData(uid) {
 
 // ── Express app ───────────────────────────────
 const app = express();
-app.use(cors());
+app.use(cors({ origin: CORS_ORIGIN }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
@@ -1092,6 +1097,8 @@ app.post('/api/cv/text', requireAuth, async (req, res) => {
   const { text } = req.body;
   if (!text || text.trim().length < 20)
     return res.status(400).json({ error: 'Please paste at least some CV text.' });
+  if (text.length > MAX_CV_TEXT_LENGTH)
+    return res.status(400).json({ error: `CV text exceeds the ${MAX_CV_TEXT_LENGTH.toLocaleString()}-character limit. Please trim it and try again.` });
 
   try {
     const docInfo = stmts.insertDoc.run(req.user.id, 'pasted-text', 'paste', text);
@@ -1162,14 +1169,26 @@ app.patch('/api/cv/confirm', requireAuth, (req, res) => {
 app.patch('/api/cv/skills', requireAuth, (req, res) => {
   const { skills } = req.body;
   if (!Array.isArray(skills)) return res.status(400).json({ error: 'skills must be array.' });
+  if (skills.length > 200)    return res.status(400).json({ error: 'Too many skills (max 200).' });
+
+  // Sanitise: strings only, bounded length, no control characters
+  const clean = skills
+    .filter(s => typeof s === 'string')
+    .map(s => s.trim().replace(/[\x00-\x1f\x7f]/g, '').slice(0, 100))
+    .filter(Boolean);
+
   const uid = req.user.id;
-  const tx = db.transaction(() => {
-    db.prepare('DELETE FROM cv_skills WHERE user_id=?').run(uid);
-    const ins = db.prepare('INSERT INTO cv_skills (user_id,skill,source) VALUES (?,?,?)');
-    for (const s of skills) if (s && s.trim()) ins.run(uid, s.trim(), 'cv_confirmed');
-  });
-  tx();
-  res.json({ ok: true });
+  try {
+    db.transaction(() => {
+      db.prepare('DELETE FROM cv_skills WHERE user_id=?').run(uid);
+      const ins = db.prepare('INSERT INTO cv_skills (user_id,skill,source) VALUES (?,?,?)');
+      for (const s of clean) ins.run(uid, s, 'cv_confirmed');
+    })();
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Skills update error:', err);
+    res.status(500).json({ error: 'Failed to update skills.' });
+  }
 });
 
 /* GET /api/cv/data  — fetch saved CV data for logged-in user */
@@ -1361,16 +1380,25 @@ app.post('/api/future/pathways', requireAuth, async (req, res) => {
       { type: 'specialist', typeName: 'Specialist Track', demand: 'High',    salary: sal.s, examples: specialistEx },
     ];
 
+    const PATHWAY_SYSTEM = 'You are a career advisor helping professionals plan their next career move. Output valid JSON only: {"title":"","match":75,"skills":["","","","",""],"desc":""}';
+
     const makePathwayPrompt = ({ type, examples }) =>
-`You are a career advisor. Suggest ONE ${type} career role that directly matches this person's industry and background.
-Choose ONLY from these examples (pick the best fit): ${examples}
-Do NOT suggest tech or software roles unless the person has a tech background.
-Return ONLY JSON: {"title":"Exact Job Title","match":80,"skills":["skill1","skill2","skill3","skill4","skill5"],"desc":"One sentence describing the day-to-day work."}
-Rules: match=integer 55-92. skills=5 real skills needed (not placeholder letters).
-Person: ${currentRole}. Background: ${expSummary.slice(0, 100)}. Skills: ${skillsList.slice(0, 100)}`;
+`Suggest ONE ${type} career role from the list below that best fits this person's background.
+
+Role options (pick the closest match): ${examples}
+
+Person: ${currentRole}
+Background: ${expSummary.slice(0, 120)}
+Skills: ${skillsList.slice(0, 120)}
+
+Fields:
+- title: exact role title chosen from the options above
+- match: integer 55-92 (realistic fit score based on background overlap)
+- skills: 5 real skills this role requires day-to-day
+- desc: one sentence describing the day-to-day work`;
 
     const results = await Promise.allSettled(
-      typeConfig.map(tc => ollamaJSON(makePathwayPrompt(tc)))
+      typeConfig.map(tc => callClaude(makePathwayPrompt(tc), { system: PATHWAY_SYSTEM, prefill: '{', maxTokens: 300 }))
     );
 
     // If ALL calls failed, surface a proper error instead of silently returning []
@@ -1513,26 +1541,28 @@ app.post('/api/future/gap', requireAuth, async (req, res) => {
       ? Math.round((baseHave.length / requiredSkills.length) * 100) : 0;
 
     // ── Step 2: LLM for per-skill priority, time estimates, skill type & strengths ──
-    const priorityPrompt =
-`You are a career advisor. Analyse each missing skill below for the target role.
+    const GAP_SYSTEM =
+`You are a career advisor specialising in skill gap analysis.
+Output valid JSON only:
+{"readiness":0,"gaps":[{"skill":"","type":"hard","priority":"Critical","weeks":1,"reason":"","courseType":""}],"strengths":["",""],"insight":""}
+
+type: "hard" = technical/tool/platform/cert skill | "soft" = leadership/communication/management/interpersonal
+priority: "Critical" = required day one | "Important" = expected in 3 months | "Useful" = differentiator
+weeks: realistic integer 1-24
+courseType — hard: "online course"|"certification"|"bootcamp"|"project" | soft: "workshop"|"coaching"|"book"|"practice"
+readiness: 0-100 integer
+strengths: 2 specific advantages the candidate already has for this exact role
+insight: single most impactful next action`;
+
+    const gapPrompt =
+`Analyse the skill gaps for this candidate targeting the role below.
+
 Target role: ${pathwayTitle}
-Candidate already has: ${userSkills.slice(0, 20).join(', ')}
-Missing skills: ${baseGap.join(', ')}
-
-Return ONLY JSON (no markdown):
-{"readiness":65,"gaps":[{"skill":"X","type":"hard","priority":"Critical","weeks":6,"reason":"why this skill matters for the role","courseType":"online course"}],"strengths":["specific competitive advantage 1","specific competitive advantage 2"],"insight":"Single most impactful next step the candidate should take."}
-
-Field rules:
-- type: "hard" for technical/tool/platform/certification skills; "soft" for interpersonal/leadership/communication/management/emotional intelligence skills
-- priority: "Critical" = required from day one; "Important" = expected within 3 months; "Useful" = differentiator
-- weeks: realistic integer 1–24 to reach working proficiency
-- courseType: for hard skills use "online course"|"certification"|"bootcamp"|"project"; for soft skills use "workshop"|"coaching"|"book"|"practice"
-- strengths: 2 specific competitive advantages this person already has FOR ${pathwayTitle}
-- readiness: integer 0–100 overall readiness score
-- insight: one concrete next action`;
+Candidate's current skills: ${userSkills.slice(0, 20).join(', ')}
+Missing skills to assess: ${baseGap.join(', ')}`;
 
     try {
-      const llm = await ollamaJSON(priorityPrompt);
+      const llm = await callClaude(gapPrompt, { system: GAP_SYSTEM, prefill: '{', maxTokens: 1500 });
 
       // Normalise LLM gaps — ensure all baseGap skills are represented
       const llmGaps    = Array.isArray(llm.gaps) ? llm.gaps : [];
